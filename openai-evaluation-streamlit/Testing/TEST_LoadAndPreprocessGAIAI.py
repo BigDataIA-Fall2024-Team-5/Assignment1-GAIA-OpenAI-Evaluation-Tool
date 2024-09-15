@@ -1,4 +1,3 @@
-# load_data.py
 import os
 import pandas as pd
 from datasets import load_dataset
@@ -7,14 +6,17 @@ from datasets import load_dataset
 def load_gaia_dataset():
     # Set the environment variable for Hugging Face token
     os.environ["HF_TOKEN"] = "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"
-    #Or we can login using huggingface-cli login
+    # Or we can login using huggingface-cli login
     
     # Specify the configuration to load
-    #Available: ['2023_all', '2023_level1', '2023_level2', '2023_level3']
+    # Available: ['2023_all', '2023_level1', '2023_level2', '2023_level3']
     config_name = '2023_level1'
-    
-    # Authenticate and load the dataset with the chosen configuration
-    ds = load_dataset('gaia-benchmark/GAIA', config_name, trust_remote_code=True)
+
+    # Specify a custom cache directory
+    custom_cache_dir = './custom_cache'  # Set this to your desired cache location
+
+    # Authenticate and load the dataset with the chosen configuration and custom cache
+    ds = load_dataset('gaia-benchmark/GAIA', config_name, trust_remote_code=True, cache_dir=custom_cache_dir)
     
     # Select the split to load, 'test' or 'validation'
     split_name = 'validation'  # Change this to 'test' if you want to load the test split
@@ -55,8 +57,12 @@ if __name__ == "__main__":
             print("Data loaded successfully")
             print(df.head())  # Display the first few rows of the dataset
             
-            # Save the DataFrame to a CSV file
-            output_csv_file = 'dump/gaia_level1_test.csv'  # Specify the output file name
+            # Ensure the 'dump' folder exists
+            output_dir = 'dump'
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Save the DataFrame to a CSV file in the 'dump' folder
+            output_csv_file = os.path.join(output_dir, 'gaia_level1_test.csv')  # Specify the output file path
             df.to_csv(output_csv_file, index=False)
             print(f"Data successfully saved to {output_csv_file}")
     except Exception as e:

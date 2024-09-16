@@ -14,6 +14,7 @@ pandas = "^2.2.2"
 datasets = "^3.0.0"
 sqlalchemy = "^2.0.34"
 huggingface-hub = "^0.24.7"
+python-dotenv = "^1.0.1"
 
 
 [build-system]

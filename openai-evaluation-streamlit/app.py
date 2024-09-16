@@ -3,10 +3,6 @@ import pandas as pd
 import openai
 import streamlit as st
 import boto3
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Initialize OpenAI API
 def init_openai(api_key):
@@ -19,58 +15,94 @@ def init_s3_client(access_key, secret_key):
                         aws_secret_access_key=secret_key)
 
 # Function to send a question and file URL to ChatGPT
-def get_chatgpt_response(question, file_url=None):
-    # Construct the message for the new Chat API
-    messages = [{"role": "system", "content": "You are a helpful assistant."}]
+def get_chatgpt_response(question, instructions=None, file_url=None):
+    # Construct the message for the Chat API
+    messages = [
+        {
+            "role": "system", 
+            "content": (
+                "You are a helpful assistant. Respond only with the final answer to questions. "
+                "For example: \n"
+                "Q: What is 2 + 2? A: 4\n"
+                "Q: Name the capital of France. A: Paris\n"
+                "Provide only the final answer without explanations."
+            )
+        }
+    ]
     
-    # Add question to the messages
+    # Add question and instructions to the messages
     user_message = question
+    if instructions:
+        user_message += f"\nInstructions: {instructions}"
     if file_url:
         user_message += f"\n[Please refer to the attached file: {file_url}]"
+    
+    user_message += "\nPlease provide only the final answer. Do not include any explanation."
     messages.append({"role": "user", "content": user_message})
 
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Use 'gpt-3.5-turbo' or 'gpt-4' if available
-            messages=messages
+            messages=messages,
+            temperature=0.2,  # Lower temperature to encourage more direct answers
         )
-        answer = response['choices'][0]['message']['content'].strip()
+        # Extract and return the answer as a single line
+        answer = response['choices'][0]['message']['content'].strip().split('\n')[0]  # Get the first line of the response
         return answer
     except Exception as e:
         st.error(f"Error calling ChatGPT API: {e}")
         return None
 
 # Compare ChatGPT's response with the expected answer
-def compare_and_update_status(row, chatgpt_response):
+def compare_and_update_status(row, chatgpt_response, instructions):
     final_answer = str(row['Final answer']).strip().lower()
     chatgpt_response = chatgpt_response.strip().lower()
 
     if chatgpt_response == final_answer:
-        return 'Correct'
+        if instructions:
+            return 'Correct with Instruction'
+        else:
+            return 'Correct without Instruction'
     else:
-        return 'Incorrect'
+        if instructions:
+            return 'Incorrect with Instruction'
+        else:
+            return 'Incorrect without Instruction'
 
 # Load the dataset
 def load_dataset(csv_path):
     try:
         df = pd.read_csv(csv_path)
-        # Ensure the 'result_status' column is of type object (string)
+        
+        # Ensure the 'result_status' column exists and is set to a string type
         if 'result_status' not in df.columns:
-            df['result_status'] = 'N/A'  # Initialize with 'N/A' if the column does not exist
+            df['result_status'] = 'N/A'
         else:
-            df['result_status'] = df['result_status'].astype('object')  # Set to 'object' dtype
+            df['result_status'] = df['result_status'].astype(str)
+        
         return df
     except Exception as e:
         st.error(f"Error loading dataset: {e}")
         return None
 
 # Streamlit app to interactively work with the dataset
-def run_streamlit_app(df, s3_client, bucket_name):
+def run_streamlit_app(df, s3_client, bucket_name, csv_path):
     st.title("GAIA Dataset QA with ChatGPT")
+
+    # Add a Refresh button
+    if st.button("Refresh"):
+        # Reload the dataset and reset session state
+        df = load_dataset(csv_path)
+        if df is not None:
+            st.session_state.df = df
+            st.session_state.current_page = 0
+            st.success("Data refreshed successfully!")
 
     # Initialize session state for pagination
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 0
+    if 'df' not in st.session_state:
+        st.session_state.df = df
 
     # Pagination controls at the very top
     col1, col2 = st.columns([1, 1])
@@ -79,18 +111,18 @@ def run_streamlit_app(df, s3_client, bucket_name):
             st.session_state.current_page -= 1
 
     if col2.button("Next"):
-        if st.session_state.current_page < (len(df) // 7):
+        if st.session_state.current_page < (len(st.session_state.df) // 7):
             st.session_state.current_page += 1
 
     # Set pagination parameters
     page_size = 7  # Number of questions to display per page
-    total_pages = (len(df) + page_size - 1) // page_size
+    total_pages = (len(st.session_state.df) + page_size - 1) // page_size
     current_page = st.session_state.current_page
 
     # Display the current page of questions
     start_idx = current_page * page_size
     end_idx = start_idx + page_size
-    current_df = df.iloc[start_idx:end_idx]
+    current_df = st.session_state.df.iloc[start_idx:end_idx]
 
     # Display the questions in a compact table
     st.write(f"Page {current_page + 1} of {total_pages}")
@@ -104,7 +136,7 @@ def run_streamlit_app(df, s3_client, bucket_name):
     )
 
     # Display question details if a row is selected
-    selected_row = df.loc[selected_row_index]
+    selected_row = st.session_state.df.loc[selected_row_index]
     st.write("**Question:**", selected_row['Question'])
     st.write("**Final Answer:**", selected_row['Final answer'])
     
@@ -113,47 +145,53 @@ def run_streamlit_app(df, s3_client, bucket_name):
     if file_url:
         st.write(f"**File Path (URL):** {file_url}")
     
-    # Button to send the question to ChatGPT without instructions
+    # Get the current status
+    current_status = st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]
+
+    # Text area for instructions
+    instructions = None
+    if current_status in ['Incorrect without Instruction', 'Incorrect with Instruction']:
+        # Show instruction text box if status is "Incorrect without Instruction" or "Incorrect with Instruction"
+        st.write("**The response was incorrect. You can provide instructions and try again.**")
+        instructions = st.text_area("Edit Instructions (Optional)", selected_row.get('Annotator_Metadata_Steps', ''))
+
     if st.button("Send to ChatGPT"):
+        # Determine if instructions should be used
+        use_instructions = current_status.startswith('Incorrect') and instructions is not None
+        
         # Call ChatGPT API
-        chatgpt_response = get_chatgpt_response(selected_row['Question'], file_url)
+        chatgpt_response = get_chatgpt_response(
+            selected_row['Question'], 
+            instructions=instructions if use_instructions else None, 
+            file_url=file_url
+        )
+        
         if chatgpt_response:
-            # Display ChatGPT's response
-            st.write("**ChatGPT's Response:**", chatgpt_response)
+            # Display ChatGPT's response with appropriate labeling
+            if use_instructions:
+                st.write("**ChatGPT's Response with Instructions:**", chatgpt_response)
+            else:
+                st.write("**ChatGPT's Response:**", chatgpt_response)
 
             # Compare response with the final answer
-            status = compare_and_update_status(selected_row, chatgpt_response)
-            if status == 'Correct':
-                df.at[selected_row_index, 'result_status'] = 'Correct'  # Update the DataFrame immediately
-            else:
-                # If incorrect, show an option to edit instructions and resend
-                st.write("**Initial response was incorrect. You can edit the instructions and try again.**")
-                editable_steps = st.text_area("Edit Steps (Optional)", selected_row.get('Annotator_Metadata_Steps', ''))
-                
-                if st.button("Send to ChatGPT with Instructions"):
-                    # Send the question with edited instructions to ChatGPT
-                    updated_prompt = selected_row['Question'] + "\nInstructions: " + editable_steps
-                    chatgpt_response_with_instructions = get_chatgpt_response(updated_prompt, file_url)
-
-                    if chatgpt_response_with_instructions:
-                        st.write("**ChatGPT's Response with Instructions:**", chatgpt_response_with_instructions)
-                        status_with_instructions = compare_and_update_status(selected_row, chatgpt_response_with_instructions)
-                        df.at[selected_row_index, 'result_status'] = 'Correct with Instructions' if status_with_instructions == 'Correct' else 'Incorrect'
-
+            status = compare_and_update_status(selected_row, chatgpt_response, instructions if use_instructions else None)
+            st.session_state.df.at[selected_row_index, 'result_status'] = status  # Update the DataFrame immediately
+            st.write(f"**Updated Result Status:** {status}")
+    
     # Display current status
-    st.write(f"**Result Status:** {df.loc[df.index == selected_row_index, 'result_status'].values[0]}")
+    st.write(f"**Result Status:** {st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]}")
 
     # Save changes to CSV
     if st.button("Save Changes"):
-        df.to_csv('updated_gaia_dataset.csv', index=False)
+        st.session_state.df.to_csv('updated_gaia_dataset.csv', index=False)
         st.success("Changes saved to updated_gaia_dataset.csv")
 
 if __name__ == "__main__":
-    # Set your OpenAI and AWS credentials from environment variables
+    # Get the environment variables directly
     openai_api_key = os.getenv('OPENAI_API_KEY')
     aws_access_key = os.getenv('AWS_ACCESS_KEY')
     aws_secret_key = os.getenv('AWS_SECRET_KEY')
-    bucket_name = os.getenv('S3_BUCKET_NAME')
+    bucket_name = os.getenv('BUCKET_NAME')
     csv_path = os.getenv('CSV_PATH')
 
     # Initialize APIs
@@ -164,4 +202,4 @@ if __name__ == "__main__":
     df = load_dataset(csv_path)
     
     if df is not None:
-        run_streamlit_app(df, s3_client, bucket_name)
+        run_streamlit_app(df, s3_client, bucket_name, csv_path)

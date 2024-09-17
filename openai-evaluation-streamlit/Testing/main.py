@@ -5,6 +5,7 @@ from load_dataset import load_gaia_dataset
 from s3_upload import init_s3_client, upload_files_to_s3_and_update_paths
 from huggingface_hub import login
 from azure_sql_utils import insert_dataframe_to_sql  # Import the Azure SQL utility
+from datetime import datetime  # Import datetime for created_date
 
 # Load environment variables from .env file
 load_dotenv()
@@ -47,6 +48,9 @@ if __name__ == "__main__":
             print("Data loaded successfully")
             print(df.head())  # Display the first few rows of the dataset
             
+            # Add the 'created_date' column with the current timestamp
+            df['created_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
             # Step 3: Initialize S3 client
             print("Initializing S3 client...")
             s3_client = init_s3_client(aws_access_key, aws_secret_key)

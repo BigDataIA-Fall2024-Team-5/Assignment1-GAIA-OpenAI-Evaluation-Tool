@@ -52,10 +52,10 @@ def insert_dataframe_to_sql(df, table_name):
             Level INT,
             FinalAnswer NVARCHAR(MAX),
             file_name NVARCHAR(255),
-            file_path NVARCHAR(500),
+            file_path NVARCHAR(MAX),
             Annotator_Metadata_Steps NVARCHAR(MAX),
-            Annotator_Metadata_Number_of_steps INT,
-            Annotator_Metadata_How_long_did_this_take NVARCHAR(50),
+            Annotator_Metadata_Number_of_steps NVARCHAR(MAX),
+            Annotator_Metadata_How_long_did_this_take NVARCHAR(100),
             Annotator_Metadata_Tools NVARCHAR(MAX),
             Annotator_Metadata_Number_of_tools INT,
             result_status NVARCHAR(50) DEFAULT 'N/A'

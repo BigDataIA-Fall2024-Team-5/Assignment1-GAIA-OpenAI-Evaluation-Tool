@@ -4,6 +4,7 @@ from clone_repo import clone_repository
 from load_dataset import load_gaia_dataset
 from s3_upload import init_s3_client, upload_files_to_s3_and_update_paths
 from huggingface_hub import login
+from azure_sql_utils import insert_dataframe_to_sql  # Import the Azure SQL utility
 
 # Load environment variables from .env file
 load_dotenv()
@@ -54,7 +55,12 @@ if __name__ == "__main__":
             print("Uploading files to S3...")
             df = upload_files_to_s3_and_update_paths(df, s3_client, bucket_name, clone_dir)
             
-            # Step 5: Save the updated DataFrame to a new CSV file
+            # Step 5: Insert the updated DataFrame into Azure SQL Database before saving to CSV
+            print("Inserting data into Azure SQL Database...")
+            table_name = "GaiaDataset"  # Define your table name in Azure SQL Database
+            insert_dataframe_to_sql(df, table_name)  # Insert the DataFrame into Azure SQL
+
+            # Step 6: Save the updated DataFrame to a new CSV file
             output_dir = './dump'  # Use a relative path for the output directory
             os.makedirs(output_dir, exist_ok=True)
             output_csv_file = os.path.join(output_dir, 'gaia_level1_test_updated.csv')

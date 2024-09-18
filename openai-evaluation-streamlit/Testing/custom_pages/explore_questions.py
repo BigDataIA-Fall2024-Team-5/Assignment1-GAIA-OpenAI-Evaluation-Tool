@@ -1,20 +1,17 @@
-import os
-import openai
+# pages/explore_questions.py
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt  # Import matplotlib for plotting
-from dotenv import load_dotenv
-from s3_upload import init_s3_client
-from azure_sql_utils import get_azure_sql_connection, update_result_status, fetch_dataframe_from_sql
-from chatgpt_utils import init_openai, get_chatgpt_response, compare_and_update_status  # Import ChatGPT utilities
+from azure_sql_utils import update_result_status, fetch_dataframe_from_sql
+from chatgpt_utils import get_chatgpt_response, compare_and_update_status
 
-# Load environment variables
-load_dotenv()
+def go_back_to_main():
+    st.session_state.page = 'main'
 
-# Streamlit app to interactively work with the dataset
 def run_streamlit_app(df, s3_client, bucket_name):
     st.title("GAIA Dataset QA with ChatGPT")
 
+    # Add a "Back" button to return to the main page using a callback
+    st.button("Back", on_click=go_back_to_main)
+    
     # Add a Refresh button
     if st.button("Refresh"):
         # Reload the dataset from Azure SQL Database and reset session state
@@ -113,41 +110,3 @@ def run_streamlit_app(df, s3_client, bucket_name):
     
     # Display current status
     st.write(f"**Result Status:** {st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]}")
-
-def run_summary_page(df):
-    st.title("Summary of Results")
-
-    # Create a bar chart for the 'result_status' column
-    status_counts = df['result_status'].value_counts()
-    st.write("### Result Status Distribution")
-    fig, ax = plt.subplots()
-    status_counts.plot(kind='bar', ax=ax)
-    ax.set_xlabel('Result Status')
-    ax.set_ylabel('Count')
-    st.pyplot(fig)
-
-    # Display the raw counts
-    st.write("### Detailed Result Status Counts")
-    st.write(status_counts)
-
-if __name__ == "__main__":
-    # Get the environment variables directly
-    openai_api_key = os.getenv('OPENAI_API_KEY')
-    aws_access_key = os.getenv('AWS_ACCESS_KEY')
-    aws_secret_key = os.getenv('AWS_SECRET_KEY')
-    bucket_name = os.getenv('BUCKET_NAME')
-
-    # Initialize APIs
-    init_openai(openai_api_key)
-    s3_client = init_s3_client(aws_access_key, aws_secret_key)
-
-    # Load the dataset from Azure SQL Database
-    df = fetch_dataframe_from_sql()  # Fetch the dataset from Azure SQL
-    if df is not None:
-        # Sidebar navigation
-        page = st.sidebar.selectbox("Choose a page:", ["QA Page", "Summary Page"])
-
-        if page == "QA Page":
-            run_streamlit_app(df, s3_client, bucket_name)
-        elif page == "Summary Page":
-            run_summary_page(df)

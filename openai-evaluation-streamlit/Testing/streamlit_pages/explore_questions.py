@@ -1,4 +1,3 @@
-# pages/explore_questions.py
 import streamlit as st
 from scripts.azure_sql_utils import update_result_status, fetch_dataframe_from_sql
 from scripts.chatgpt_utils import get_chatgpt_response, compare_and_update_status
@@ -6,12 +5,28 @@ from scripts.chatgpt_utils import get_chatgpt_response, compare_and_update_statu
 def go_back_to_main():
     st.session_state.page = 'main'
 
-def run_streamlit_app(df, s3_client, bucket_name):
+def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     st.title("GAIA Dataset QA with ChatGPT")
 
     # Add a "Back" button to return to the main page using a callback
     st.button("Back", on_click=go_back_to_main)
     
+    # Explicitly check database connection and load data if not provided
+    if df is None:
+        st.info("Attempting to connect to the database...")
+        df = fetch_dataframe_from_sql()
+        if df is not None:
+            st.success("Database connection established successfully.")
+        else:
+            st.error("Failed to connect to the database. Please check your connection settings.")
+            return  # Exit the function if the connection fails
+
+    # Initialize session state for pagination
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = 0
+    if 'df' not in st.session_state:
+        st.session_state.df = df
+
     # Add a Refresh button
     if st.button("Refresh"):
         # Reload the dataset from Azure SQL Database and reset session state
@@ -21,12 +36,8 @@ def run_streamlit_app(df, s3_client, bucket_name):
             st.session_state.df = df
             st.session_state.current_page = 0
             st.success("Data refreshed successfully!")
-
-    # Initialize session state for pagination
-    if 'current_page' not in st.session_state:
-        st.session_state.current_page = 0
-    if 'df' not in st.session_state:
-        st.session_state.df = df
+        else:
+            st.error("Failed to refresh data from the database.")
 
     # Reset the DataFrame index to avoid KeyError issues
     st.session_state.df.reset_index(drop=True, inplace=True)
@@ -65,7 +76,7 @@ def run_streamlit_app(df, s3_client, bucket_name):
     # Display question details if a row is selected
     selected_row = st.session_state.df.iloc[selected_row_index]  # Use iloc to get the row by position
     st.write("**Question:**", selected_row['Question'])
-    st.write("**Final Answer:**", selected_row['FinalAnswer'])
+    st.write("**Expected Final Answer:**", selected_row['FinalAnswer'])
 
     # Get the file URL (S3 path) if file_path is available
     file_url = selected_row['file_path'] if selected_row['file_path'] else None

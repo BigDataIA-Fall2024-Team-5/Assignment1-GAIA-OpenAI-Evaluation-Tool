@@ -1,4 +1,4 @@
-# pages/view_summary.py
+# view_summary.py
 import streamlit as st
 import matplotlib.pyplot as plt
 

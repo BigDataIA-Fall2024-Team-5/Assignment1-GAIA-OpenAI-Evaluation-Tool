@@ -5,7 +5,7 @@ from clone_repo import clone_repository
 from load_dataset import load_gaia_dataset
 from s3_upload import init_s3_client, upload_files_to_s3_and_update_paths
 from huggingface_hub import login
-from azure_sql_utils import insert_dataframe_to_sql  # Import the Azure SQL utility
+from azure_sql_utils import insert_dataframe_to_sql 
 from datetime import datetime  # Import datetime for created_date
 
 # Load environment variables from .env file
@@ -13,7 +13,8 @@ load_dotenv()
 
 if __name__ == "__main__":
     # Set the environment variable for Hugging Face cache directory
-    cache_dir = './cache'  # Use a relative path for the clone directory
+    cache_dir = './.cache'
+    
     os.environ["HF_HOME"] = cache_dir
     os.environ["HF_DATASETS_CACHE"] = cache_dir
 
@@ -25,6 +26,7 @@ if __name__ == "__main__":
     aws_access_key = os.getenv('AWS_ACCESS_KEY')
     aws_secret_key = os.getenv('AWS_SECRET_KEY')
     bucket_name = os.getenv('S3_BUCKET_NAME')
+    repo_url = os.getenv('GAIA_REPO_URL')
 
     # Ensure tokens are available
     if not hf_token:
@@ -34,17 +36,15 @@ if __name__ == "__main__":
     # Programmatically login to Hugging Face without adding to Git credentials
     login(token=hf_token, add_to_git_credential=False)
 
-    repo_url = "https://huggingface.co/datasets/gaia-benchmark/GAIA"
-    clone_dir = os.path.join(cache_dir, "gaia_repo_test")  # Use a relative path for the clone directory
-
     try:
         # Step 1: Clone the repository
+        clone_dir = os.path.join(cache_dir, "gaia_repo") 
         print("Cloning the repository...")
         clone_repository(repo_url, clone_dir)
 
         # Step 2: Load the dataset
         print("Loading the dataset...")
-        df = load_gaia_dataset()
+        df = load_gaia_dataset(cache_dir)
         if df is not None:
             print("Data loaded successfully")
             print(df.head())  # Display the first few rows of the dataset
@@ -66,11 +66,12 @@ if __name__ == "__main__":
             insert_dataframe_to_sql(df, table_name)  # Insert the DataFrame into Azure SQL
 
             # Step 6: Save the updated DataFrame to a new CSV file
-            output_dir = './dump'  # Use a relative path for the output directory
+            output_dir = os.path.join(cache_dir, 'data_to_azuresql')  # Set the output directory under cache
             os.makedirs(output_dir, exist_ok=True)
-            output_csv_file = os.path.join(output_dir, 'gaia_level1_test_updated.csv')
+            output_csv_file = os.path.join(output_dir, 'gaia_data_view.csv')
             df.to_csv(output_csv_file, index=False)
             print(f"\nData with updated file paths successfully saved to {output_csv_file}")
+
         else:
             print("Data loading failed.")
     except Exception as e:

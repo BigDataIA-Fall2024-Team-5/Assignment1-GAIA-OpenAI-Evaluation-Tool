@@ -2,11 +2,11 @@ import os
 import openai
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt  # Import matplotlib for plotting
+import matplotlib.pyplot as plt 
 from dotenv import load_dotenv
-from s3_upload import init_s3_client
-from azure_sql_utils import get_azure_sql_connection, update_result_status, fetch_dataframe_from_sql
-from chatgpt_utils import init_openai, get_chatgpt_response, compare_and_update_status  # Import ChatGPT utilities
+from scripts.s3_upload import init_s3_client
+from scripts.azure_sql_utils import get_azure_sql_connection, update_result_status, fetch_dataframe_from_sql
+from scripts.chatgpt_utils import init_openai, get_chatgpt_response, compare_and_update_status  # Import ChatGPT utilities
 
 # Load environment variables
 load_dotenv()

@@ -2,9 +2,9 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from s3_upload import init_s3_client
-from azure_sql_utils import fetch_dataframe_from_sql
-from chatgpt_utils import init_openai
+from scripts.s3_upload import init_s3_client
+from scripts.azure_sql_utils import fetch_dataframe_from_sql
+from scripts.chatgpt_utils import init_openai
 
 # Load environment variables
 load_dotenv()
@@ -64,7 +64,7 @@ def run_explore_questions():
 
     if df is not None:
         # Corrected import for the explore_questions module
-        from custom_pages.explore_questions import run_streamlit_app
+        from streamlit_pages.explore_questions import run_streamlit_app
         run_streamlit_app(df, s3_client, bucket_name)
 
 def run_view_summary():
@@ -72,7 +72,7 @@ def run_view_summary():
     df = fetch_dataframe_from_sql()
     if df is not None:
         # Corrected import for the view_summary module
-        from custom_pages.view_summary import run_summary_page
+        from streamlit_pages.view_summary import run_summary_page
         run_summary_page(df)
 
 if __name__ == "__main__":

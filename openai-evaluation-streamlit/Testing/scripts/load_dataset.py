@@ -1,13 +1,9 @@
-#load_dataset.py
 import os
 import pandas as pd
 from datasets import load_dataset
 
 # Load the GAIA dataset using Hugging Face with authentication
-def load_gaia_dataset():
-    # Specify the cache directory you want to use
-    cache_dir = './cache'  
-    
+def load_gaia_dataset(cache_dir):
     # Set environment variables for Hugging Face
     os.environ["HF_HOME"] = cache_dir
     os.environ["HF_DATASETS_CACHE"] = cache_dir  # Set the datasets cache directory explicitly

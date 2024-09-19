@@ -1,8 +1,9 @@
+#explore_questions
 import os
 import streamlit as st
 from scripts.azure_sql_utils import update_result_status, fetch_dataframe_from_sql
 from scripts.chatgpt_utils import get_chatgpt_response, compare_and_update_status
-from scripts.s3_upload import download_file_from_s3
+from scripts.amazon_s3_utils import download_file_from_s3
 from scripts.file_processor import preprocess_file
 from scripts.delete_cache import delete_cache_folder
 
@@ -97,6 +98,7 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     file_name = selected_row.get('file_name', None)
     file_url = selected_row.get('file_path', None)
     downloaded_file_path = None
+    preprocessed_data = None
 
     if file_name:
         st.write(f"**File Name:** {file_name}")
@@ -104,7 +106,6 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
             st.write(f"**File Path (URL):** {file_url}")
         
         if bucket_name:
-            # Download the file from S3 if a file name and bucket name are available
             downloaded_file_path = download_file_from_s3(file_name, bucket_name, temp_file_dir, s3_client)
             
             if downloaded_file_path:
@@ -112,7 +113,7 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
                 # Preprocess the file (pass the downloaded file to the preprocessing function)
                 preprocessed_data = preprocess_file(downloaded_file_path)
-                st.write(f"**Preprocessed Data:** {preprocessed_data}")
+                print(f"Debug : Preprocessed Data: {preprocessed_data}")
             else:
                 st.error(f"Failed to download the file {file_name} from S3.")
         else:
@@ -141,12 +142,12 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     if st.button("Send to ChatGPT"):
         # Determine if instructions should be used
         use_instructions = current_status.startswith('Incorrect') and st.session_state.instructions
-        
-        # Call ChatGPT API
+
+        # Call ChatGPT API, passing the preprocessed file data instead of a URL
         chatgpt_response = get_chatgpt_response(
             selected_row['Question'], 
             instructions=st.session_state.instructions if use_instructions else None, 
-            file_url=file_url
+            preprocessed_data=preprocessed_data  # Send the preprocessed file data
         )
         
         if chatgpt_response:

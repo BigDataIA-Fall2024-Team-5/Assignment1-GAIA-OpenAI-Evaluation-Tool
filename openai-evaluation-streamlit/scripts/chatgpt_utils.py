@@ -1,4 +1,4 @@
-# chatgpt_utils.py
+#chatgpt_utils
 import openai
 import streamlit as st
 
@@ -6,8 +6,8 @@ import streamlit as st
 def init_openai(api_key):
     openai.api_key = api_key
 
-# Function to send a question and file URL to ChatGPT
-def get_chatgpt_response(question, instructions=None, file_url=None):
+# Function to send a question and preprocessed file data to ChatGPT
+def get_chatgpt_response(question, instructions=None, preprocessed_data=None):
     # Construct the message for the Chat API
     messages = [
         {
@@ -29,11 +29,16 @@ def get_chatgpt_response(question, instructions=None, file_url=None):
     user_message = question
     if instructions:
         user_message += f"\nInstructions: {instructions}\nPlease provide only the key information in the answer."
-    if file_url:
-        user_message += f"\n[Please refer to the attached file: {file_url}]"
     
+    # Add preprocessed data if available
+    if preprocessed_data:
+        user_message += f"\nHere is the reference file details:\n{preprocessed_data}"
+
     user_message += "\nProvide the answer as concisely as possible."
     messages.append({"role": "user", "content": user_message})
+
+    # Debug print for question being sent
+    print(f"Debug: Sending question to ChatGPT: {user_message}")
 
     try:
         response = openai.ChatCompletion.create(
@@ -72,6 +77,9 @@ def compare_and_update_status(row, chatgpt_response, instructions):
         "Do not include any explanations or extra words, respond only with 'YES' or 'NO'."
     )
 
+    # Debug print for comparison being sent
+    print(f"Debug: Sending comparison prompt to ChatGPT:\n{comparison_prompt}")
+
     try:
         # Send the generalized comparison prompt to OpenAI
         response = openai.ChatCompletion.create(
@@ -83,8 +91,8 @@ def compare_and_update_status(row, chatgpt_response, instructions):
         # Extract the response
         comparison_result = response['choices'][0]['message']['content'].strip().lower()
 
-        # Log the response for debugging
-        #st.write(f"Debug - AI Comparison Result: {comparison_result}")
+        # Debug print for the response from ChatGPT
+        print(f"Debug : Received comparison response from ChatGPT: {comparison_result}")
 
         # Normalize the result to handle variations of 'yes' and 'no'
         if 'yes' in comparison_result:

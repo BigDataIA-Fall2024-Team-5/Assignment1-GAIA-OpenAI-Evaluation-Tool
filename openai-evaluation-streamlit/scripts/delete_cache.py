@@ -1,4 +1,4 @@
-#delete_cache_folder
+#delete_cache
 import shutil
 import os
 

@@ -1,8 +1,9 @@
+#main
 import os
 from dotenv import load_dotenv
 from clone_repo import clone_repository
 from load_dataset import load_gaia_dataset
-from s3_upload import init_s3_client, upload_files_to_s3_and_update_paths
+from amazon_s3_utils import init_s3_client, upload_files_to_s3_and_update_paths
 from huggingface_hub import login
 from azure_sql_utils import insert_dataframe_to_sql 
 from datetime import datetime  # Import datetime for created_date

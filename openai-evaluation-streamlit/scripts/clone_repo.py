@@ -1,4 +1,4 @@
-#clone_repo.py
+#clone_repo
 import os
 import subprocess
 

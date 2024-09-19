@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from scripts.s3_upload import init_s3_client
+from scripts.amazon_s3_utils import init_s3_client
 from scripts.azure_sql_utils import fetch_dataframe_from_sql
 from scripts.chatgpt_utils import init_openai
 

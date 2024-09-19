@@ -1,6 +1,17 @@
+import os
 import streamlit as st
 from scripts.azure_sql_utils import update_result_status, fetch_dataframe_from_sql
 from scripts.chatgpt_utils import get_chatgpt_response, compare_and_update_status
+from scripts.s3_upload import download_file_from_s3
+from scripts.file_processor import preprocess_file
+from scripts.delete_cache import delete_cache_folder
+
+# Define cache directory and temporary file directory
+cache_dir = '.cache'
+temp_file_dir = os.path.join(cache_dir, 'temp_file')
+
+# Ensure that cache and temp directories exist
+os.makedirs(temp_file_dir, exist_ok=True)
 
 def go_back_to_main():
     st.session_state.page = 'main'
@@ -82,10 +93,32 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     st.write("**Question:**", selected_row['Question'])
     st.write("**Expected Final Answer:**", selected_row['FinalAnswer'])
 
-    # Get the file URL (S3 path) if file_path is available
-    file_url = selected_row['file_path'] if selected_row['file_path'] else None
-    if file_url:
-        st.write(f"**File Path (URL):** {file_url}")
+    # Get the file name and file path (S3 URL) if available
+    file_name = selected_row.get('file_name', None)
+    file_url = selected_row.get('file_path', None)
+    downloaded_file_path = None
+
+    if file_name:
+        st.write(f"**File Name:** {file_name}")
+        if file_url:
+            st.write(f"**File Path (URL):** {file_url}")
+        
+        if bucket_name:
+            # Download the file from S3 if a file name and bucket name are available
+            downloaded_file_path = download_file_from_s3(file_name, bucket_name, temp_file_dir, s3_client)
+            
+            if downloaded_file_path:
+                st.write(f"File downloaded successfully to: {downloaded_file_path}")
+
+                # Preprocess the file (pass the downloaded file to the preprocessing function)
+                preprocessed_data = preprocess_file(downloaded_file_path)
+                st.write(f"**Preprocessed Data:** {preprocessed_data}")
+            else:
+                st.error(f"Failed to download the file {file_name} from S3.")
+        else:
+            st.error(f"Invalid bucket name: {bucket_name}. Please check the environment variables.")
+    else:
+        st.info("No file associated with this question.")
 
     # Get the current status
     current_status = st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]
@@ -137,3 +170,7 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
     # Display current status
     st.write(f"**Result Status:** {st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]}")
+
+    # Cleanup: Delete cache folder after processing if a file was downloaded
+    # if downloaded_file_path:
+    #     delete_cache_folder(temp_file_dir)  # Cleanup the temp directory after the process is done

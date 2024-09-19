@@ -13,7 +13,7 @@ def load_gaia_dataset(cache_dir):
     os.makedirs(cache_dir, exist_ok=True)
 
     # Specify the configuration to load
-    config_name = '2023_level1'
+    config_name = '2023_all' # Available: ['2023_all', '2023_level1', '2023_level2', '2023_level3']
 
     # Load the dataset into the specified cache directory
     ds = load_dataset('gaia-benchmark/GAIA', config_name, trust_remote_code=True, cache_dir=cache_dir)

@@ -1,4 +1,3 @@
-#main.py
 import os
 from dotenv import load_dotenv
 from clone_repo import clone_repository
@@ -7,6 +6,7 @@ from s3_upload import init_s3_client, upload_files_to_s3_and_update_paths
 from huggingface_hub import login
 from azure_sql_utils import insert_dataframe_to_sql 
 from datetime import datetime  # Import datetime for created_date
+from delete_cache import delete_cache_folder  # Import the function to delete cache
 
 # Load environment variables from .env file
 load_dotenv()
@@ -71,6 +71,10 @@ if __name__ == "__main__":
             output_csv_file = os.path.join(output_dir, 'gaia_data_view.csv')
             df.to_csv(output_csv_file, index=False)
             print(f"\nData with updated file paths successfully saved to {output_csv_file}")
+
+            # Step 7: Delete the cache directory
+            print("Deleting cache directory...")
+            #delete_cache_folder(cache_dir)
 
         else:
             print("Data loading failed.")

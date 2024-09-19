@@ -1,4 +1,3 @@
-# newapp.py
 import os
 import streamlit as st
 from dotenv import load_dotenv
@@ -56,16 +55,34 @@ def run_explore_questions():
     openai_api_key = os.getenv('OPENAI_API_KEY')
     aws_access_key = os.getenv('AWS_ACCESS_KEY')
     aws_secret_key = os.getenv('AWS_SECRET_KEY')
-    bucket_name = os.getenv('BUCKET_NAME')
+    bucket_name = os.getenv('S3_BUCKET_NAME')
 
+    # Error handling for missing environment variables
+    missing_vars = []
+    if not openai_api_key:
+        missing_vars.append("OPENAI_API_KEY")
+    if not aws_access_key:
+        missing_vars.append("AWS_ACCESS_KEY")
+    if not aws_secret_key:
+        missing_vars.append("AWS_SECRET_KEY")
+    if not bucket_name:
+        missing_vars.append("S3_BUCKET_NAME")
+
+    if missing_vars:
+        st.error(f"Missing environment variables: {', '.join(missing_vars)}. Please ensure these are set.")
+        return  # Exit the function if any environment variable is missing
+
+    # Initialize OpenAI and S3 client
     init_openai(openai_api_key)
     s3_client = init_s3_client(aws_access_key, aws_secret_key)
-    df = fetch_dataframe_from_sql()  # Fetch the dataset from Azure SQL
 
+    df = fetch_dataframe_from_sql()  # Fetch the dataset from Azure SQL
     if df is not None:
         # Corrected import for the explore_questions module
         from streamlit_pages.explore_questions import run_streamlit_app
         run_streamlit_app(df, s3_client, bucket_name)
+    else:
+        st.error("Failed to load dataset from Azure SQL.")
 
 def run_view_summary():
     # Load the dataset for the Summary Page
@@ -74,6 +91,8 @@ def run_view_summary():
         # Corrected import for the view_summary module
         from streamlit_pages.view_summary import run_summary_page
         run_summary_page(df)
+    else:
+        st.error("Failed to load dataset from Azure SQL.")
 
 if __name__ == "__main__":
     main()

@@ -21,11 +21,15 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
             st.error("Failed to connect to the database. Please check your connection settings.")
             return  # Exit the function if the connection fails
 
-    # Initialize session state for pagination
+    # Initialize session state for pagination and instructions
     if 'current_page' not in st.session_state:
         st.session_state.current_page = 0
     if 'df' not in st.session_state:
         st.session_state.df = df
+    if 'instructions' not in st.session_state:
+        st.session_state.instructions = ""  # Initialize instructions state
+    if 'show_instructions' not in st.session_state:
+        st.session_state.show_instructions = False  # Flag to control text area display
 
     # Add a Refresh button
     if st.button("Refresh"):
@@ -86,21 +90,29 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     # Get the current status
     current_status = st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]
 
-    # Text area for instructions
-    instructions = None
-    if current_status in ['Incorrect without Instruction', 'Incorrect with Instruction']:
-        # Show instruction text box if status is "Incorrect without Instruction" or "Incorrect with Instruction"
+    # Update session state for instructions when selecting a new question
+    if 'last_selected_row_index' not in st.session_state or st.session_state.last_selected_row_index != selected_row_index:
+        # Update the session state instructions with the current row's metadata
+        st.session_state.instructions = selected_row.get('Annotator_Metadata_Steps', '')
+        st.session_state.last_selected_row_index = selected_row_index
+        st.session_state.show_instructions = False  # Reset the flag
+
+    # Show the text area if instructed or if the status is 'Incorrect without Instruction' or 'Incorrect with Instruction'
+    if st.session_state.show_instructions or current_status in ['Incorrect without Instruction', 'Incorrect with Instruction']:
         st.write("**The response was incorrect. You can provide instructions and try again.**")
-        instructions = st.text_area("Edit Instructions (Optional)", selected_row.get('Annotator_Metadata_Steps', ''))
+        st.session_state.instructions = st.text_area(
+            "Edit Instructions (Optional)",
+            value=st.session_state.instructions,  # Load the previous instructions if available
+        )
 
     if st.button("Send to ChatGPT"):
         # Determine if instructions should be used
-        use_instructions = current_status.startswith('Incorrect') and instructions is not None
+        use_instructions = current_status.startswith('Incorrect') and st.session_state.instructions
         
         # Call ChatGPT API
         chatgpt_response = get_chatgpt_response(
             selected_row['Question'], 
-            instructions=instructions if use_instructions else None, 
+            instructions=st.session_state.instructions if use_instructions else None, 
             file_url=file_url
         )
         
@@ -112,12 +124,16 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
                 st.write("**ChatGPT's Response:**", chatgpt_response)
 
             # Compare response with the final answer
-            status = compare_and_update_status(selected_row, chatgpt_response, instructions if use_instructions else None)
+            status = compare_and_update_status(selected_row, chatgpt_response, st.session_state.instructions if use_instructions else None)
             st.session_state.df.at[selected_row_index, 'result_status'] = status  # Update the DataFrame immediately
             st.write(f"**Updated Result Status:** {status}")
 
             # Update the status in the Azure SQL Database
             update_result_status(selected_row['task_id'], status)
-    
+
+            # Set flag to show instructions if the response is incorrect
+            if status in ['Incorrect without Instruction', 'Incorrect with Instruction']:
+                st.session_state.show_instructions = True
+
     # Display current status
     st.write(f"**Result Status:** {st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]}")

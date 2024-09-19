@@ -39,11 +39,21 @@ def insert_dataframe_to_sql(df, table_name):
         
         # Drop the table if it exists
         with engine.connect() as connection:
-            drop_table_query = f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL DROP TABLE {table_name};"
-            connection.execute(drop_table_query)
+            # Use an explicit transaction block for dropping the table
+            transaction = connection.begin()
+            try:
+                drop_table_query = text(f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL DROP TABLE {table_name};")
+                connection.execute(drop_table_query)
+                transaction.commit()
+                print(f"Table '{table_name}' dropped successfully.")
+            except Exception as drop_error:
+                transaction.rollback()
+                print(f"Error dropping table '{table_name}': {drop_error}")
+                return  # Exit if unable to drop the table
 
-            # Create the table
-            create_table_query = f"""
+        # Create the table
+        with engine.connect() as connection:
+            create_table_query = text(f"""
             CREATE TABLE {table_name} (
                 task_id NVARCHAR(50) PRIMARY KEY, 
                 Question NVARCHAR(MAX),
@@ -59,8 +69,9 @@ def insert_dataframe_to_sql(df, table_name):
                 result_status NVARCHAR(50) DEFAULT 'N/A',
                 created_date DATETIME
             );
-            """
+            """)
             connection.execute(create_table_query)
+            print(f"Table '{table_name}' created successfully.")
 
         # Insert the DataFrame into the Azure SQL table
         df.to_sql(table_name, engine, if_exists='append', index=False, dtype={
@@ -83,6 +94,7 @@ def insert_dataframe_to_sql(df, table_name):
         
     except Exception as e:
         print(f"Error inserting data into Azure SQL Database: {e}")
+
 
 def fetch_dataframe_from_sql(table_name='GaiaDataset'):
     """

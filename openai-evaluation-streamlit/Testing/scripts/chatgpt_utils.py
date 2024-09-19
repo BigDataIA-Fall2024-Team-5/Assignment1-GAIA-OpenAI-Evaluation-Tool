@@ -14,11 +14,13 @@ def get_chatgpt_response(question, instructions=None, file_url=None):
             "role": "system", 
             "content": (
                 "You are a helpful assistant. Provide clear and concise responses to questions. "
-                "Your answers should be direct and no longer than 5 lines. Include only minimal context if necessary. "
+                "Your answers should be direct and focus on the specific piece of information requested in the question. "
+                "Avoid additional context unless necessary for clarity. "
                 "For example:\n"
-                "Q: What is 2 + 2? A: The answer is 4.\n"
-                "Q: Name the capital of France. A: The capital of France is Paris.\n"
-                "Keep each response under 5 lines, focusing on the main point."
+                "Q: What is 2 + 2? A: 4.\n"
+                "Q: Name the capital of France. A: Paris.\n"
+                "Q: What is the chemical symbol for water? A: H2O.\n"
+                "Respond with only the essential information needed to answer the question."
             )
         }
     ]
@@ -26,18 +28,18 @@ def get_chatgpt_response(question, instructions=None, file_url=None):
     # Add question and instructions to the messages
     user_message = question
     if instructions:
-        user_message += f"\nInstructions: {instructions}"
+        user_message += f"\nInstructions: {instructions}\nPlease provide only the key information in the answer."
     if file_url:
         user_message += f"\n[Please refer to the attached file: {file_url}]"
     
-    user_message += "\nPlease provide a response no longer than 5 lines."
+    user_message += "\nProvide the answer as concisely as possible."
     messages.append({"role": "user", "content": user_message})
 
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Use 'gpt-3.5-turbo' or 'gpt-4'
             messages=messages,
-            temperature=0.2,  # Lower temperature to encourage more direct answers
+            temperature=0.3,  # Lower temperature to encourage more direct answers
         )
         # Extract and process the answer
         answer = response['choices'][0]['message']['content'].strip()
@@ -52,27 +54,28 @@ def get_chatgpt_response(question, instructions=None, file_url=None):
         st.error(f"Error calling ChatGPT API: {e}")
         return None
 
+
 # Compare ChatGPT's response with the expected answer using OpenAI API
 def compare_and_update_status(row, chatgpt_response, instructions):
     original_answer = str(row['FinalAnswer']).strip()
     ai_engine_answer = chatgpt_response.strip()
     question = row['Question'].strip()
 
-    # Construct the comparison message for OpenAI
+    # Construct a generalized comparison prompt for OpenAI
     comparison_prompt = (
-        f"ORIGINAL ANSWER IS: {original_answer}\n\n"
-        f"QUESTION: {question}\n\n"
-        "AI ENGINE ANSWER:\n"
-        f"{ai_engine_answer}\n\n"
-        "Compare the original answer with the AI Engine Answer for the above question "
-        "and strictly give me a one-word reply: 'YES' if it matches, or 'NO' if it does not. "
-        "No other words other than the ones inside quotes (' ') without the quotes."
+        f"The original answer is: {original_answer}\n\n"
+        f"The question was: {question}\n\n"
+        f"The AI's response was: {ai_engine_answer}\n\n"
+        "Does the AI's response contain the key piece of information that matches the original answer? "
+        "Focus on the specific information requested in the question. "
+        "Respond strictly with one word: 'YES' if the key information matches, or 'NO' if it does not. "
+        "Do not include any explanations or extra words, respond only with 'YES' or 'NO'."
     )
 
     try:
-        # Send the comparison prompt to OpenAI
+        # Send the generalized comparison prompt to OpenAI
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Use 'gpt-3.5-turbo' or 'gpt-4'
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": comparison_prompt}],
             temperature=0,  # Zero temperature for deterministic results
         )
@@ -80,13 +83,16 @@ def compare_and_update_status(row, chatgpt_response, instructions):
         # Extract the response
         comparison_result = response['choices'][0]['message']['content'].strip().lower()
 
+        # Log the response for debugging
+        #st.write(f"Debug - AI Comparison Result: {comparison_result}")
+
         # Normalize the result to handle variations of 'yes' and 'no'
-        if comparison_result in ['yes', "'yes'", '"yes"', 'yes.', 'yes!', 'yes ', 'yes']:
+        if 'yes' in comparison_result:
             if instructions:
                 return 'Correct with Instruction'
             else:
                 return 'Correct without Instruction'
-        elif comparison_result in ['no', "'no'", '"no"', 'no.', 'no!', 'no ', 'no']:
+        elif 'no' in comparison_result:
             if instructions:
                 return 'Incorrect with Instruction'
             else:
@@ -99,4 +105,3 @@ def compare_and_update_status(row, chatgpt_response, instructions):
     except Exception as e:
         st.error(f"Error calling OpenAI API for comparison: {e}")
         return 'Error'
-

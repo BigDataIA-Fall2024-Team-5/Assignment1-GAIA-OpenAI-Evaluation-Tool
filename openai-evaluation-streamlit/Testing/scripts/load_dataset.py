@@ -55,4 +55,11 @@ def preprocess_nested_data(df):
         # Concatenate with the original DataFrame, dropping the original 'Annotator Metadata' column
         df = pd.concat([df.drop(columns=['Annotator Metadata']), metadata_df], axis=1)
     
+    df = df.rename(columns={
+        'Final answer': 'FinalAnswer',
+        'Annotator_Metadata_Number of steps': 'Annotator_Metadata_Number_of_steps',
+        'Annotator_Metadata_How long did this take?': 'Annotator_Metadata_How_long_did_this_take',
+        'Annotator_Metadata_Number of tools': 'Annotator_Metadata_Number_of_tools'
+    })
+    
     return df

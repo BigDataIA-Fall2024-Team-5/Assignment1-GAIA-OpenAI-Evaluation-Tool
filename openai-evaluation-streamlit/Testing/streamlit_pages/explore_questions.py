@@ -1,7 +1,7 @@
 # pages/explore_questions.py
 import streamlit as st
-from azure_sql_utils import update_result_status, fetch_dataframe_from_sql
-from chatgpt_utils import get_chatgpt_response, compare_and_update_status
+from scripts.azure_sql_utils import update_result_status, fetch_dataframe_from_sql
+from scripts.chatgpt_utils import get_chatgpt_response, compare_and_update_status
 
 def go_back_to_main():
     st.session_state.page = 'main'

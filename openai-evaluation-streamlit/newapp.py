@@ -1,9 +1,9 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from scripts.amazon_s3_utils import init_s3_client
-from scripts.azure_sql_utils import fetch_dataframe_from_sql
-from scripts.chatgpt_utils import init_openai
+from scripts.api_utils.amazon_s3_utils import init_s3_client
+from scripts.api_utils.azure_sql_utils import fetch_dataframe_from_sql
+from scripts.api_utils.chatgpt_utils import init_openai
 
 # Load environment variables
 load_dotenv()

@@ -42,7 +42,7 @@ def get_chatgpt_response(question, instructions=None, preprocessed_data=None):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Use 'gpt-3.5-turbo' or 'gpt-4'
+            model="gpt-4o-mini",  # Use 'gpt-3.5-turbo' or 'gpt-4' or 'gpt-4-turbo' or 'gpt-4o-mini'
             messages=messages,
             temperature=0.3,  # Lower temperature to encourage more direct answers
         )

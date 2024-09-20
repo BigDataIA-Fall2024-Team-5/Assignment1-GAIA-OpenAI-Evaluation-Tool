@@ -1,4 +1,3 @@
-#file_processor
 import os
 import pandas as pd
 import json
@@ -7,10 +6,8 @@ import zipfile
 from docx import Document
 from PyPDF2 import PdfReader
 
-
 def preprocess_file(file_path):
     """Preprocess a file based on its extension and return relevant information."""
-    
     file_extension = os.path.splitext(file_path)[1].lower()
     
     if file_extension == '.txt':
@@ -42,22 +39,33 @@ def preprocess_file(file_path):
 
 def preprocess_txt(file_path):
     """Preprocess a .txt file by reading and returning its content."""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+    return read_file_content(file_path)
 
 def preprocess_csv(file_path):
-    """Preprocess a .csv file by loading and returning its first few rows."""
+    """Preprocess a .csv file by loading and returning its full content or as much as possible if too large."""
     try:
         df = pd.read_csv(file_path)
-        return df.head().to_string()  # Return the first few rows as a string
+        content = df.to_string(index=False)
+        
+        # Adjust based on the token limit (e.g., 16000 characters)
+        if len(content) > 16000:
+            content = content[:16000]  # Truncate to fit the limit
+            
+        return {"content": content}
     except Exception as e:
         return f"Error processing CSV file: {e}"
 
 def preprocess_xlsx(file_path):
-    """Preprocess an .xlsx file by loading and returning its first sheet's first few rows."""
+    """Preprocess an .xlsx file by loading and returning its full content or as much as possible if too large."""
     try:
-        df = pd.read_excel(file_path, sheet_name=0)  # Read the first sheet
-        return df.head().to_string()  # Return the first few rows as a string
+        df = pd.read_excel(file_path, sheet_name=0)
+        content = df.to_string(index=False)
+        
+        # Adjust based on the token limit
+        if len(content) > 16000:
+            content = content[:16000]  # Truncate to fit the limit
+            
+        return {"content": content}
     except Exception as e:
         return f"Error processing XLSX file: {e}"
 
@@ -65,7 +73,7 @@ def preprocess_image(file_path):
     """Preprocess an image file by returning its size and mode."""
     try:
         with Image.open(file_path) as img:
-            return f"Image size: {img.size}, Mode: {img.mode}"
+            return {"info": {"size": img.size, "mode": img.mode}}
     except Exception as e:
         return f"Error processing image file: {e}"
 
@@ -74,7 +82,7 @@ def preprocess_jsonld(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
-        return json.dumps(data, indent=2)  # Return the JSON data pretty printed
+        return {"content": json.dumps(data, indent=2)}
     except Exception as e:
         return f"Error processing JSON-LD file: {e}"
 
@@ -82,7 +90,7 @@ def preprocess_zip(file_path):
     """Preprocess a .zip file by returning a list of its contents."""
     try:
         with zipfile.ZipFile(file_path, 'r') as zip_ref:
-            return zip_ref.namelist()  # Return the list of files inside the zip
+            return {"content": zip_ref.namelist()}
     except Exception as e:
         return f"Error processing ZIP file: {e}"
 
@@ -103,15 +111,19 @@ def preprocess_pdf(file_path):
         reader = PdfReader(file_path)
         text = ""
         for page in reader.pages:
-            text += page.extract_text()
+            text += page.extract_text() or ""
+        
+        # Adjust based on the token limit
+        if len(text) > 16000:
+            text = text[:16000]  # Truncate to fit the limit
+            
         return text
     except Exception as e:
         return f"Error processing PDF file: {e}"
 
 def preprocess_py(file_path):
     """Preprocess a .py file by returning its content."""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+    return read_file_content(file_path)
 
 def preprocess_pptx(file_path):
     """Preprocess a .pptx file by extracting and returning slide content."""
@@ -129,17 +141,21 @@ def preprocess_pptx(file_path):
 
 def preprocess_pdb(file_path):
     """Preprocess a .pdb file by returning its content."""
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
-    except Exception as e:
-        return f"Error processing PDB file: {e}"
+    return read_file_content(file_path)
 
 def preprocess_mp3(file_path):
     """Preprocess an .mp3 file by returning its metadata."""
     try:
         from mutagen.mp3 import MP3
         audio = MP3(file_path)
-        return f"MP3 duration: {audio.info.length} seconds, Bitrate: {audio.info.bitrate} bps"
+        return {"duration": audio.info.length, "bitrate": audio.info.bitrate}
     except Exception as e:
         return f"Error processing MP3 file: {e}"
+
+def read_file_content(file_path):
+    """Read content from a file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    except Exception as e:
+        return f"Error reading file {file_path}: {e}"

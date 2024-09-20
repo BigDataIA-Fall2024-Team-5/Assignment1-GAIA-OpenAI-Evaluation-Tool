@@ -1,0 +1,9 @@
+# Ignore Python bytecode
+__pycache__/
+*.py[cod]
+
+# Ignore cache and temp files
+.cache/
+
+# Ignore any S3-related files
+*.log

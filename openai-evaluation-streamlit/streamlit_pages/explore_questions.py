@@ -1,11 +1,11 @@
 #explore_questions
 import os
 import streamlit as st
-from scripts.azure_sql_utils import update_result_status, fetch_dataframe_from_sql
-from scripts.chatgpt_utils import get_chatgpt_response, compare_and_update_status
-from scripts.amazon_s3_utils import download_file_from_s3
-from scripts.file_processor import preprocess_file
-from scripts.delete_cache import delete_cache_folder
+from scripts.api_utils.azure_sql_utils import update_result_status, fetch_dataframe_from_sql
+from scripts.api_utils.chatgpt_utils import get_chatgpt_response, compare_and_update_status
+from scripts.api_utils.amazon_s3_utils import download_file_from_s3
+from scripts.data_handling.file_processor import preprocess_file
+from scripts.data_handling.delete_cache import delete_cache_folder
 
 # Define cache directory and temporary file directory
 cache_dir = '.cache'

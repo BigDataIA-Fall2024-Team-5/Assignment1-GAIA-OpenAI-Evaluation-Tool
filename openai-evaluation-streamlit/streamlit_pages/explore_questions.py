@@ -17,6 +17,49 @@ os.makedirs(temp_file_dir, exist_ok=True)
 def go_back_to_main():
     st.session_state.page = 'main'
 
+# Callback function for handling 'Send to ChatGPT'
+def handle_send_to_chatgpt(selected_row, selected_row_index, preprocessed_data):
+    # Get the current status
+    current_status = st.session_state.df.loc[selected_row_index, 'result_status']
+    
+    # Determine if instructions should be used based on the current status
+    use_instructions = False
+    if current_status.startswith("Incorrect"):
+        use_instructions = bool(st.session_state.instructions)
+    
+    # Call ChatGPT API, passing the preprocessed file data instead of a URL
+    chatgpt_response = get_chatgpt_response(
+        selected_row['Question'], 
+        instructions=st.session_state.instructions if use_instructions else None, 
+        preprocessed_data=preprocessed_data  # Send the preprocessed file data
+    )
+
+    if chatgpt_response:
+        # Store ChatGPT's response in session state, using the question index as the key
+        if use_instructions:
+            st.session_state.chatgpt_responses_with_instructions[selected_row_index] = chatgpt_response
+        else:
+            st.session_state.chatgpt_responses[selected_row_index] = chatgpt_response
+
+        # Compare response with the final answer
+        status = compare_and_update_status(selected_row, chatgpt_response, st.session_state.instructions if use_instructions else None)
+        st.session_state.df.at[selected_row_index, 'result_status'] = status
+
+        # Update current_status
+        current_status = status  # Update current status with the new result
+
+        # Update the status in the Azure SQL Database
+        update_result_status(selected_row['task_id'], status)
+
+        # Show instructions if the response is incorrect
+        if status.startswith("Incorrect"):
+            st.session_state.show_instructions = True
+
+        # Save the instructions if used
+        if use_instructions:
+            st.session_state.stored_instructions[selected_row_index] = st.session_state.instructions
+
+
 def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     st.title("GAIA Dataset QA with ChatGPT")
 
@@ -42,6 +85,16 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
         st.session_state.instructions = ""  # Initialize instructions state
     if 'show_instructions' not in st.session_state:
         st.session_state.show_instructions = False  # Flag to control text area display
+
+    # Initialize dictionaries to store ChatGPT responses if not present
+    if 'chatgpt_responses' not in st.session_state:
+        st.session_state.chatgpt_responses = {}
+    if 'chatgpt_responses_with_instructions' not in st.session_state:
+        st.session_state.chatgpt_responses_with_instructions = {}
+
+    # Initialize a dictionary to store instructions if not present
+    if 'stored_instructions' not in st.session_state:
+        st.session_state.stored_instructions = {}
 
     # Add a Refresh button
     if st.button("Refresh"):
@@ -113,7 +166,6 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
                 # Preprocess the file (pass the downloaded file to the preprocessing function)
                 preprocessed_data = preprocess_file(downloaded_file_path)
-                print(f"Debug : Preprocessed Data: {preprocessed_data}")
             else:
                 st.error(f"Failed to download the file {file_name} from S3.")
         else:
@@ -126,51 +178,75 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
     # Update session state for instructions when selecting a new question
     if 'last_selected_row_index' not in st.session_state or st.session_state.last_selected_row_index != selected_row_index:
-        # Update the session state instructions with the current row's metadata
-        st.session_state.instructions = selected_row.get('Annotator_Metadata_Steps', '')
+        # Reset instructions if status is "Correct with Instruction"
+        if current_status.startswith('Correct'):
+            st.session_state.instructions = ""  # Clear instructions
+        else:
+            st.session_state.instructions = selected_row.get('Annotator_Metadata_Steps', '')
+
+        # Ensure instructions are loaded from stored state if present
+        if selected_row_index in st.session_state.stored_instructions:
+            st.session_state.instructions = st.session_state.stored_instructions[selected_row_index]
+
         st.session_state.last_selected_row_index = selected_row_index
         st.session_state.show_instructions = False  # Reset the flag
 
-    # Show the text area if instructed or if the status is 'Incorrect without Instruction' or 'Incorrect with Instruction'
-    if st.session_state.show_instructions or current_status in ['Incorrect without Instruction', 'Incorrect with Instruction']:
-        st.write("**The response was incorrect. You can provide instructions and try again.**")
+    # Only display one button at a time
+    if not st.session_state.show_instructions and not current_status.startswith("Incorrect"):  
+        # Show 'Send to ChatGPT' if no instructions and status is not incorrect
+        st.button("Send to ChatGPT", on_click=handle_send_to_chatgpt, args=(selected_row, selected_row_index, preprocessed_data))
+
+    # Display the ChatGPT response for the current question if it exists
+    if selected_row_index in st.session_state.chatgpt_responses:
+        st.write(f"**ChatGPT's Response:** {st.session_state.chatgpt_responses[selected_row_index]}")
+
+    # Display the ChatGPT response with instructions for the current question if it exists
+    if selected_row_index in st.session_state.chatgpt_responses_with_instructions:
+        st.write(f"**ChatGPT's Response with Instructions:** {st.session_state.chatgpt_responses_with_instructions[selected_row_index]}")
+
+    # If instructions are needed or status is incorrect, show text area and 'Send Instructions' button
+    if st.session_state.show_instructions or current_status.startswith("Incorrect"):
+        st.write("**The response was incorrect. Please provide instructions.**")
+        
+        # Hide 'Send to ChatGPT' button when instructions are being edited or status is incorrect
+        if not st.session_state.show_instructions:
+            st.button("Send to ChatGPT", disabled=True)
+
+        # Pre-fill instructions from stored instructions if they exist
         st.session_state.instructions = st.text_area(
             "Edit Instructions (Optional)",
-            value=st.session_state.instructions,  # Load the previous instructions if available
+            value=st.session_state.instructions,
+            key=f"instructions_{selected_row_index}"  # Unique key
         )
 
-    if st.button("Send to ChatGPT"):
-        # Determine if instructions should be used
-        use_instructions = current_status.startswith('Incorrect') and st.session_state.instructions
+        # Button to send instructions to ChatGPT
+        if st.button("Send Instructions to ChatGPT", key=f'send_button_{selected_row_index}'):
+            # Store the provided instructions in the session state for future reference
+            st.session_state.stored_instructions[selected_row_index] = st.session_state.instructions
 
-        # Call ChatGPT API, passing the preprocessed file data instead of a URL
-        chatgpt_response = get_chatgpt_response(
-            selected_row['Question'], 
-            instructions=st.session_state.instructions if use_instructions else None, 
-            preprocessed_data=preprocessed_data  # Send the preprocessed file data
-        )
-        
-        if chatgpt_response:
-            # Display ChatGPT's response with appropriate labeling
-            if use_instructions:
-                st.write("**ChatGPT's Response with Instructions:**", chatgpt_response)
-            else:
-                st.write("**ChatGPT's Response:**", chatgpt_response)
+            # Use the updated instructions to query ChatGPT
+            chatgpt_response = get_chatgpt_response(
+                selected_row['Question'], 
+                instructions=st.session_state.instructions, 
+                preprocessed_data=preprocessed_data
+            )
 
-            # Compare response with the final answer
-            status = compare_and_update_status(selected_row, chatgpt_response, st.session_state.instructions if use_instructions else None)
-            st.session_state.df.at[selected_row_index, 'result_status'] = status  # Update the DataFrame immediately
-            st.write(f"**Updated Result Status:** {status}")
+            if chatgpt_response:
+                st.write(f"**ChatGPT's Response with Instructions:** {chatgpt_response}")
+                
+                # Store the response with instructions
+                st.session_state.chatgpt_responses_with_instructions[selected_row_index] = chatgpt_response
 
-            # Update the status in the Azure SQL Database
-            update_result_status(selected_row['task_id'], status)
+                # Compare and update status based on ChatGPT's response
+                status = compare_and_update_status(selected_row, chatgpt_response, st.session_state.instructions)
+                st.session_state.df.at[selected_row_index, 'result_status'] = status
+                current_status = status  # Make sure current_status is updated here too
 
-            # Set flag to show instructions if the response is incorrect
-            if status in ['Incorrect without Instruction', 'Incorrect with Instruction']:
-                st.session_state.show_instructions = True
+                # Update the status in the Azure SQL Database
+                update_result_status(selected_row['task_id'], status)
 
-    # Display current status
-    st.write(f"**Result Status:** {st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]}")
+    # Display the final status
+    st.write(f"**Final Result Status:** {st.session_state.df.loc[st.session_state.df.index == selected_row_index, 'result_status'].values[0]}")
 
     # Cleanup: Delete cache folder after processing if a file was downloaded
     # if downloaded_file_path:

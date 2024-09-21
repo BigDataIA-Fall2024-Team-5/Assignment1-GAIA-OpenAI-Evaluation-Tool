@@ -88,10 +88,11 @@ poetry install
    S3_BUCKET_NAME='your-s3-bucket-name'  
    GAIA_REPO_URL='https://huggingface.co/datasets/gaia-benchmark/GAIA'  
    AZURE_SQL_SERVER='your-azure-sql-server'  
-   AZURE_SQL_DATABASE='your-azure-sql-database'
+   AZURE_SQL_DATABASE='your-azure-sql-database'  
    AZURE_SQL_TABLE='your-azure-sql-table'  
    AZURE_SQL_USER='your-azure-sql-username'  
    AZURE_SQL_PASSWORD='your-azure-sql-password'  
+
 
 4. **Run the application**:
 

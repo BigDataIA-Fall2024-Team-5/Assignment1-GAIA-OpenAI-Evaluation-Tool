@@ -1,6 +1,7 @@
 #azure_sql_utils
 import os
 import pandas as pd
+import bcrypt
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.types import NVARCHAR, Integer, DateTime
@@ -153,3 +154,58 @@ def update_result_status(task_id, status, table_name='GaiaDataset'):
 
 
 
+def fetch_user_from_sql(username):
+    """
+    Fetches a user from the Azure SQL Database based on the username.
+    
+    Args:
+        username (str): The username to fetch from the database.
+    
+    Returns:
+        dict: The user record as a dictionary, or None if the user does not exist.
+    """
+    try:
+        connection_string = get_sqlalchemy_connection_string()
+        engine = create_engine(connection_string)
+        
+        query = text(f"SELECT * FROM users WHERE username = :username")
+        with engine.connect() as connection:
+            result = connection.execute(query, {"username": username}).fetchone()
+        
+        if result:
+            return dict(result)  # Return the user data as a dictionary
+        else:
+            return None
+
+    except Exception as e:
+        print(f"Error fetching user from Azure SQL Database: {e}")
+        return None
+
+def insert_user_to_sql(username, password, role):
+    """
+    Inserts a new user into the Azure SQL Database with hashed password.
+    
+    Args:
+        username (str): The username to insert.
+        password (str): The plain-text password (it will be hashed before inserting).
+        role (str): The role of the user ('admin' or 'user').
+    """
+    try:
+        # Hash the password using bcrypt
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        
+        connection_string = get_sqlalchemy_connection_string()
+        engine = create_engine(connection_string)
+        
+        insert_user_query = text(f"""
+            INSERT INTO users (user_id, username, password, role)
+            VALUES (NEWID(), :username, :password, :role)
+        """)
+        
+        with engine.connect() as connection:
+            connection.execute(insert_user_query, {"username": username, "password": hashed_password, "role": role})
+        
+        print(f"User '{username}' added successfully.")
+
+    except Exception as e:
+        print(f"Error inserting user into Azure SQL Database: {e}")

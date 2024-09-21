@@ -6,15 +6,24 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Modify the connection string to use pymssql
-connection_string = f"mssql+pymssql://{os.getenv('AZURE_SQL_USER')}:{os.getenv('AZURE_SQL_PASSWORD')}@{os.getenv('AZURE_SQL_SERVER')}/{os.getenv('AZURE_SQL_DATABASE')}"
+def get_sqlalchemy_connection_string():
+    """
+    Constructs an SQLAlchemy connection string for connecting to Azure SQL Database.
+    
+    Returns:
+        str: SQLAlchemy connection string.
+    """
+    server = os.getenv('AZURE_SQL_SERVER')
+    user = os.getenv('AZURE_SQL_USER')
+    password = os.getenv('AZURE_SQL_PASSWORD')
+    database = os.getenv('AZURE_SQL_DATABASE')
 
-# Initialize SQLAlchemy engine with pymssql
-engine = create_engine(connection_string)
+    connection_string = f"mssql+pymssql://{user}:{password}@{server}/{database}"
+    return connection_string
 
 # SQL queries to drop and create tables
-drop_users_table = "IF OBJECT_ID('users', 'U') IS NOT NULL DROP TABLE users;"
 drop_user_results_table = "IF OBJECT_ID('user_results', 'U') IS NOT NULL DROP TABLE user_results;"
+drop_users_table = "IF OBJECT_ID('users', 'U') IS NOT NULL DROP TABLE users;"
 
 create_users_table = """
 CREATE TABLE users (
@@ -44,39 +53,64 @@ default_users = [
 ]
 
 def setup_database():
+    connection_string = get_sqlalchemy_connection_string()
+    engine = create_engine(connection_string)
+
     with engine.connect() as connection:
-        # Drop the tables if they exist
-        print("Dropping existing tables if they exist...")
-        connection.execute(text(drop_users_table))
-        connection.execute(text(drop_user_results_table))
-        
-        # Create the tables
-        print("Creating users table...")
-        connection.execute(text(create_users_table))
+        # Start a transaction to drop tables
+        transaction = connection.begin()
+        try:
+            # Drop existing tables in the correct order
+            print("Dropping existing tables if they exist...")
+            connection.execute(text(drop_user_results_table))  # Drop dependent table first
+            connection.execute(text(drop_users_table))  # Then drop the referenced table
 
-        print("Creating user_results table...")
-        connection.execute(text(create_user_results_table))
+            # Commit the transaction after dropping tables
+            transaction.commit()
+            print("Tables dropped successfully.")
+        except Exception as e:
+            # Rollback the transaction in case of error
+            transaction.rollback()
+            print(f"An error occurred while dropping tables: {e}")
+            return  # Exit if there's an error
 
-        # Insert default users
-        print("Inserting default users...")
-        for user in default_users:
-            # Hash the password
-            hashed_password = bcrypt.hashpw(user["password"].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            
-            # SQL query to insert a new user
-            insert_user_query = text(f"""
-            INSERT INTO users (user_id, username, password, role)
-            VALUES (NEWID(), :username, :password, :role)
-            """)
-            
-            # Execute the query with user data
-            connection.execute(insert_user_query, {
-                "username": user["username"],
-                "password": hashed_password,
-                "role": user["role"]
-            })
+        # Start a new transaction to create tables and insert users
+        transaction = connection.begin()
+        try:
+            # Create new tables
+            print("Creating users table...")
+            connection.execute(text(create_users_table))
 
-        print("Database setup completed successfully, and default users have been added.")
+            print("Creating user_results table...")
+            connection.execute(text(create_user_results_table))
+
+            # Insert default users
+            print("Inserting default users...")
+            for user in default_users:
+                # Hash the password
+                hashed_password = bcrypt.hashpw(user["password"].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                
+                # SQL query to insert a new user
+                insert_user_query = text(f"""
+                INSERT INTO users (user_id, username, password, role)
+                VALUES (NEWID(), :username, :password, :role)
+                """)
+                
+                # Execute the query with user data
+                connection.execute(insert_user_query, {
+                    "username": user["username"],
+                    "password": hashed_password,
+                    "role": user["role"]
+                })
+
+            # Commit the transaction after creating tables and inserting users
+            transaction.commit()
+            print("Database setup completed successfully, and default users have been added.")
+
+        except Exception as e:
+            # Rollback the transaction in case of error
+            transaction.rollback()
+            print(f"An error occurred while creating tables or inserting users: {e}")
 
 if __name__ == "__main__":
     setup_database()

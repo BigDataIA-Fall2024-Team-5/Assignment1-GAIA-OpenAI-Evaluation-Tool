@@ -5,7 +5,8 @@ import bcrypt
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.types import NVARCHAR, Integer, DateTime
-
+from sqlalchemy.engine import Row  # For type hinting
+from sqlalchemy.exc import SQLAlchemyError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -152,8 +153,6 @@ def update_result_status(task_id, status, table_name='GaiaDataset'):
     except Exception as e:
         print(f"Error updating result_status in Azure SQL Database: {e}")
 
-
-
 def fetch_user_from_sql(username):
     """
     Fetches a user from the Azure SQL Database based on the username.
@@ -168,18 +167,22 @@ def fetch_user_from_sql(username):
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
         
-        query = text(f"SELECT * FROM users WHERE username = :username")
+        query = text(f"SELECT user_id, username, password, role FROM users WHERE username = :username")
         with engine.connect() as connection:
             result = connection.execute(query, {"username": username}).fetchone()
         
+        # Check if a result was returned
         if result:
-            return dict(result)  # Return the user data as a dictionary
+            # Convert the result (Row object) to a dictionary
+            user_dict = dict(result._mapping)  # Use _mapping to safely convert to a dict
+            return user_dict
         else:
-            return None
+            return None  # User not found
 
     except Exception as e:
         print(f"Error fetching user from Azure SQL Database: {e}")
         return None
+
 
 def insert_user_to_sql(username, password, role):
     """
@@ -193,19 +196,87 @@ def insert_user_to_sql(username, password, role):
     try:
         # Hash the password using bcrypt
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
+
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
-        
-        insert_user_query = text(f"""
+
+        insert_user_query = text("""
             INSERT INTO users (user_id, username, password, role)
             VALUES (NEWID(), :username, :password, :role)
         """)
-        
-        with engine.connect() as connection:
-            connection.execute(insert_user_query, {"username": username, "password": hashed_password, "role": role})
-        
-        print(f"User '{username}' added successfully.")
 
+        # Use a transaction block to ensure data integrity
+        with engine.connect() as connection:
+            transaction = connection.begin()  # Begin a transaction
+            try:
+                # Execute the insert query
+                connection.execute(insert_user_query, {"username": username, "password": hashed_password, "role": role})
+
+                # Commit the transaction if no errors occurred
+                transaction.commit()
+                print(f"User '{username}' added successfully.")
+            except SQLAlchemyError as e:
+                # Rollback the transaction in case of an error
+                transaction.rollback()
+                print(f"Error inserting user into Azure SQL Database: {e}")
     except Exception as e:
-        print(f"Error inserting user into Azure SQL Database: {e}")
+        print(f"An unexpected error occurred: {e}")
+
+def fetch_all_users():
+    try:
+        connection_string = get_sqlalchemy_connection_string()  # Assuming this function is defined elsewhere
+        engine = create_engine(connection_string)
+
+        query = text("SELECT user_id, username, role FROM users")  # Wrap query in text()
+
+        with engine.connect() as connection:
+            result = connection.execute(query).fetchall()
+
+        # Convert result rows to a list of dictionaries using row._asdict()
+        users = [row._asdict() for row in result]
+        return users
+    except Exception as e:
+        print(f"Error fetching users: {e}")
+        return None
+
+
+
+def remove_user(username):
+    try:
+        connection_string = get_sqlalchemy_connection_string()
+        engine = create_engine(connection_string)
+
+        query = text("DELETE FROM users WHERE username = :username")
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                result = connection.execute(query, {"username": username})
+                transaction.commit()  # Commit transaction
+                return result.rowcount > 0
+            except SQLAlchemyError as e:
+                transaction.rollback()  # Rollback if error occurs
+                print(f"Error removing user: {e}")
+                return False
+    except Exception as e:
+        print(f"Error: {e}")
+        return False
+
+def promote_to_admin(username):
+    try:
+        connection_string = get_sqlalchemy_connection_string()
+        engine = create_engine(connection_string)
+
+        query = text("UPDATE users SET role = 'admin' WHERE username = :username")
+        with engine.connect() as connection:
+            transaction = connection.begin()
+            try:
+                result = connection.execute(query, {"username": username})
+                transaction.commit()  # Commit transaction
+                return result.rowcount > 0
+            except SQLAlchemyError as e:
+                transaction.rollback()  # Rollback if error occurs
+                print(f"Error promoting user: {e}")
+                return False
+    except Exception as e:
+        print(f"Error: {e}")
+        return False

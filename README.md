@@ -117,6 +117,6 @@ Once the application is set up and the environment variables are configured, fol
 
 ## License
 
-This project is licensed under the MIT License. For more details, please refer to the [LICENSE](LICENSE.md) file.
+This project is licensed under the MIT License. For more details, please refer to the [LICENSE](LICENSE) file.
 
 

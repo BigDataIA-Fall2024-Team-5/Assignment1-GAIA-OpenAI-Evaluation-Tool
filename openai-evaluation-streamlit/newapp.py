@@ -5,6 +5,10 @@ from scripts.api_utils.amazon_s3_utils import init_s3_client
 from scripts.api_utils.azure_sql_utils import fetch_dataframe_from_sql
 from scripts.api_utils.chatgpt_utils import init_openai
 
+# Import login and registration pages
+from streamlit_pages.login_page import login_page
+from streamlit_pages.register_page import register_page
+
 # Load environment variables
 load_dotenv()
 
@@ -16,6 +20,10 @@ def main():
     # Display the current page based on session state
     if st.session_state.page == 'landing':
         run_landing_page()
+    elif st.session_state.page == 'login':
+        login_page()  # Login page
+    elif st.session_state.page == 'register':
+        register_page()  # Registration page
     elif st.session_state.page == 'main':
         run_main_page()
     elif st.session_state.page == 'explore_questions':
@@ -24,6 +32,9 @@ def main():
         run_view_summary()
 
 # Callback functions to change pages
+def set_page_to_login():
+    st.session_state.page = 'login'
+
 def set_page_to_main():
     st.session_state.page = 'main'
 
@@ -37,12 +48,12 @@ def run_landing_page():
     st.title("OPEN AI EVALUATION APP")
     st.write("Welcome to the Open AI Evaluation App!")
 
-    # "Try It" button to navigate to the Main Page
-    st.button("Try It", on_click=set_page_to_main)  # Using callback to change the page
+    # "Try It" button to navigate to the Login Page
+    st.button("Try It", on_click=set_page_to_login)  # Using callback to go to login page
 
 def run_main_page():
     st.title("Main Page")
-    st.write("Choose an option:")
+    st.write(f"Welcome {st.session_state['username']}!")
 
     # "Explore Questions" button to navigate to the Explore Questions Page
     st.button("Explore Questions", on_click=set_page_to_explore_questions)  # Using callback to change the page

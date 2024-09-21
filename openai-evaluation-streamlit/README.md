@@ -20,19 +20,21 @@ This repository contains an application that evaluates a dataset of questions us
 - **Visualization**: The app generates visualizations of ChatGPT's performance using **Matplotlib** to help interpret the results.
 
 ## Project Structure
-📦 openai-evaluation-streamlit
- ┣ 📂 scripts
- ┃ ┣ 📂 api_utils         # Scripts for handling API interactions (AWS, OpenAI, Azure SQL)
- ┃ ┣ 📂 data_handling     # Scripts for handling data (cloning, processing, etc.)
- ┃ ┣ 📜 main.py           # Main orchestration script
- ┣ 📂 streamlit_pages      # Pages for the Streamlit web interface
- ┣ 📜 newapp.py            # Main entry point for the evaluation app
- ┣ 📜 .env                 # Environment variable configuration
- ┣ 📜 .gitignore           # File to exclude unnecessary files from Git
- ┣ 📜 poetry.lock          # Poetry lock file for dependencies
- ┣ 📜 pyproject.toml       # Poetry project configuration
- ┣ 📜 LICENSE              # MIT License file
+📦 openai-evaluation-streamlit  
+ ┣ 📂 scripts  
+ ┃ ┣ 📂 api_utils         # Scripts for handling API interactions (AWS, OpenAI, Azure SQL)  
+ ┃ ┣ 📂 data_handling     # Scripts for handling data (cloning, processing, etc.)  
+ ┃ ┣ 📜 main.py           # Main orchestration script  
+ ┣ 📂 streamlit_pages      # Pages for the Streamlit web interface  
+ ┣ 📜 newapp.py            # Main entry point for the evaluation app  
+ ┣ 📜 .env                 # Environment variable configuration  
+ ┣ 📜 .gitignore           # File to exclude unnecessary files from Git  
+ ┣ 📜 poetry.lock          # Poetry lock file for dependencies  
+ ┣ 📜 pyproject.toml       # Poetry project configuration  
+ ┣ 📜 LICENSE              # MIT License file  
  ┣ 📜 README.md            # Main README file
+
+
 
 ## Understanding `newapp.py`
 
@@ -86,11 +88,12 @@ poetry install
    S3_BUCKET_NAME='your-s3-bucket-name'  
    GAIA_REPO_URL='https://huggingface.co/datasets/gaia-benchmark/GAIA'  
    AZURE_SQL_SERVER='your-azure-sql-server'  
-   AZURE_SQL_DATABASE='your-azure-sql-database'  
+   AZURE_SQL_DATABASE='your-azure-sql-database'
+   AZURE_SQL_TABLE='your-azure-sql-table'
    AZURE_SQL_USER='your-azure-sql-username'  
    AZURE_SQL_PASSWORD='your-azure-sql-password'  
 
-3. **Run the application**:
+4. **Run the application**:
 
    Start the Streamlit app using the following command:
 

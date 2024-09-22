@@ -2,24 +2,10 @@ import os
 import bcrypt  # To hash the passwords
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
+from api_utils.azure_sql_utils import get_sqlalchemy_connection_string
 
 # Load environment variables from .env file
 load_dotenv()
-
-def get_sqlalchemy_connection_string():
-    """
-    Constructs an SQLAlchemy connection string for connecting to Azure SQL Database.
-    
-    Returns:
-        str: SQLAlchemy connection string.
-    """
-    server = os.getenv('AZURE_SQL_SERVER')
-    user = os.getenv('AZURE_SQL_USER')
-    password = os.getenv('AZURE_SQL_PASSWORD')
-    database = os.getenv('AZURE_SQL_DATABASE')
-
-    connection_string = f"mssql+pymssql://{user}:{password}@{server}/{database}"
-    return connection_string
 
 # SQL queries to drop and create tables
 drop_user_results_table = "IF OBJECT_ID('user_results', 'U') IS NOT NULL DROP TABLE user_results;"
@@ -39,8 +25,8 @@ CREATE TABLE user_results (
     result_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id NVARCHAR(50),
     task_id NVARCHAR(50),
-    result_status NVARCHAR(50),
-    chatgpt_response NVARCHAR(MAX),  -- Add column to store ChatGPT response
+    user_result_status NVARCHAR(50),
+    chatgpt_response NVARCHAR(MAX),  -- Column to store ChatGPT response
     created_date DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );

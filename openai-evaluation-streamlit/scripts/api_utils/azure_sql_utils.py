@@ -56,7 +56,7 @@ def insert_dataframe_to_sql(df, table_name):
                     Annotator_Metadata_How_long_did_this_take NVARCHAR(100),
                     Annotator_Metadata_Tools NVARCHAR(MAX),
                     Annotator_Metadata_Number_of_tools INT,
-                    result_status NVARCHAR(50) DEFAULT 'N/A',
+                    user_result_status NVARCHAR(50) DEFAULT 'N/A',
                     created_date DATETIME
                 );
             """)
@@ -75,7 +75,7 @@ def insert_dataframe_to_sql(df, table_name):
             'Annotator_Metadata_How_long_did_this_take': NVARCHAR(length=100),
             'Annotator_Metadata_Tools': NVARCHAR(length='max'),
             'Annotator_Metadata_Number_of_tools': Integer,
-            'result_status': NVARCHAR(length=50),
+            'user_result_status': NVARCHAR(length=50),
             'created_date': DateTime
         })
 
@@ -101,7 +101,6 @@ def fetch_dataframe_from_sql(table_name='GaiaDataset'):
         print(f"Error fetching data from Azure SQL: {e}")
         return None
 
-# New function to fetch user-specific results
 def fetch_user_results(user_id):
     """
     Fetches the user-specific results from the Azure SQL Database.
@@ -114,7 +113,7 @@ def fetch_user_results(user_id):
             SELECT 
                 user_id, 
                 task_id, 
-                result_status, 
+                user_result_status,
                 chatgpt_response 
             FROM user_results 
             WHERE user_id = :user_id
@@ -123,7 +122,7 @@ def fetch_user_results(user_id):
             result = connection.execute(query, {"user_id": user_id}).fetchall()
 
         if result:
-            df = pd.DataFrame(result, columns=['user_id', 'task_id', 'result_status', 'chatgpt_response'])
+            df = pd.DataFrame(result, columns=['user_id', 'task_id', 'user_result_status', 'chatgpt_response'])
             return df
         else:
             return None  # No results found for the user
@@ -132,8 +131,6 @@ def fetch_user_results(user_id):
         print(f"Error fetching user results: {e}")
         return None
 
-
-# Function to update user-specific result and ChatGPT response
 def update_user_result(user_id, task_id, status, chatgpt_response, table_name='user_results'):
     """
     Updates user-specific result and ChatGPT response in the user_results table.
@@ -150,9 +147,9 @@ def update_user_result(user_id, task_id, status, chatgpt_response, table_name='u
                     USING (SELECT :user_id AS user_id, :task_id AS task_id, :status AS status, :chatgpt_response AS chatgpt_response) AS source
                     ON target.user_id = source.user_id AND target.task_id = source.task_id
                     WHEN MATCHED THEN
-                        UPDATE SET result_status = source.status, chatgpt_response = source.chatgpt_response
+                        UPDATE SET user_result_status = source.status, chatgpt_response = source.chatgpt_response
                     WHEN NOT MATCHED THEN
-                        INSERT (user_id, task_id, result_status, chatgpt_response) 
+                        INSERT (user_id, task_id, user_result_status, chatgpt_response) 
                         VALUES (source.user_id, source.task_id, source.status, source.chatgpt_response);
                 """)
                 connection.execute(update_query, {
@@ -178,7 +175,7 @@ def fetch_user_from_sql(username):
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
         
-        query = text(f"SELECT user_id, username, password, role FROM users WHERE username = :username")
+        query = text("SELECT user_id, username, password, role FROM users WHERE username = :username")
         with engine.connect() as connection:
             result = connection.execute(query, {"username": username}).fetchone()
 
@@ -193,9 +190,10 @@ def fetch_user_from_sql(username):
 # Function to insert a new user with a hashed password
 def insert_user_to_sql(username, password, role):
     """
-    Insert new user with hashed password.
+    Inserts a new user with a hashed password into the users table.
     """
     try:
+        # Hash the user's password
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         connection_string = get_sqlalchemy_connection_string()
@@ -205,17 +203,21 @@ def insert_user_to_sql(username, password, role):
             INSERT INTO users (user_id, username, password, role)
             VALUES (NEWID(), :username, :password, :role)
         """)
-        
+
         with engine.connect() as connection:
             transaction = connection.begin()
             try:
-                connection.execute(insert_user_query, {"username": username, "password": hashed_password, "role": role})
+                connection.execute(insert_user_query, {
+                    'username': username, 
+                    'password': hashed_password, 
+                    'role': role
+                })
                 transaction.commit()
                 print(f"User '{username}' added successfully.")
             except SQLAlchemyError as e:
                 transaction.rollback()
                 print(f"Error inserting user: {e}")
-    
+
     except Exception as e:
         print(f"Unexpected error: {e}")
 
@@ -284,4 +286,3 @@ def promote_to_admin(username):
                 return False
     except Exception as e:
         print(f"Error: {e}")
-        return False

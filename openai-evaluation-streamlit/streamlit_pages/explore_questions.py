@@ -100,15 +100,14 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     # Fetch user-specific results
     user_results = fetch_user_results(user_id)
 
-    # If user_results is empty, create a default DataFrame with 'result_status' set to 'N/A'
+    # If user_results is empty, create a default DataFrame with 'user_result_status' set to 'N/A'
     if user_results is None or user_results.empty:
         user_results = pd.DataFrame({
             'task_id': st.session_state.df['task_id'],
-            'result_status': ['N/A'] * len(st.session_state.df)
+            'user_result_status': ['N/A'] * len(st.session_state.df)
         })
 
-    # Merge user_results with GaiaDataset but ensure we do not modify GaiaDataset's result_status
-    # Rename user_results' result_status to avoid confusion
+    # Merge user_results with GaiaDataset
     user_results = user_results.rename(columns={'result_status': 'user_result_status'})
 
     merged_df = st.session_state.df.merge(
@@ -116,9 +115,9 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
         on='task_id',
         how='left'
     )
-    # After merging user_results with GaiaDataset, use this to fill missing values
-    merged_df['user_result_status'] = merged_df['user_result_status'].fillna('N/A')
 
+    # After merging user_results with GaiaDataset, fill missing 'user_result_status' with 'N/A'
+    merged_df['user_result_status'] = merged_df['user_result_status'].fillna('N/A')
 
     st.session_state.user_results = merged_df  # Store merged DataFrame in session state
 
@@ -186,11 +185,6 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     downloaded_file_path = None
     preprocessed_data = None
 
-    file_name = selected_row.get('file_name', None)
-    file_url = selected_row.get('file_path', None)
-    downloaded_file_path = None
-    preprocessed_data = None
-
     if file_name:
         st.write(f"**File Name:** {file_name}")
         if file_url:
@@ -210,8 +204,6 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
                     preprocessed_data = preprocess_file(downloaded_file_path)
                     if isinstance(preprocessed_data, str) and "not supported" in preprocessed_data:
                         st.error(preprocessed_data)
-                    else:
-                        pass
                 else:
                     st.error(f"Failed to download the file {file_name} from S3.")
             else:
@@ -248,8 +240,6 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
         if st.button("Send to ChatGPT", on_click=handle_send_to_chatgpt, args=(selected_row, selected_row_index, preprocessed_data), key=f"send_chatgpt_{selected_row_index}"):
             # ChatGPT response will be processed in handle_send_to_chatgpt
             pass
-
-
 
     # If the response was incorrect, prompt for instructions
     if st.session_state.show_instructions:
@@ -293,6 +283,8 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
     # Display the final status
     st.write(f"**Final Result Status:** {current_status}")
+
+
 
     # Cleanup: Delete cache folder after processing if a file was downloaded
     # if downloaded_file_path:

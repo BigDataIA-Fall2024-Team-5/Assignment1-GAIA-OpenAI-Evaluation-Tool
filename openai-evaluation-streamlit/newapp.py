@@ -170,20 +170,21 @@ def run_view_summary():
         st.write("No user results found. Please complete some questions.")
         user_results_df = pd.DataFrame(columns=['task_id', 'user_result_status', 'chatgpt_response'])  # Empty DataFrame
 
-    # Check if 'result_status' exists in user_results_df before renaming it
-    if 'result_status' in user_results_df.columns:
-        user_results_df = user_results_df.rename(columns={'result_status': 'user_result_status'})
-    else:
-        # If 'result_status' doesn't exist, ensure a placeholder column is there
-        user_results_df['user_result_status'] = 'N/A'
+    # Drop 'user_result_status' from df (main dataset) to avoid duplication during the merge
+    if 'user_result_status' in df.columns:
+        df = df.drop(columns=['user_result_status'])
 
-    # Merge the two dataframes on 'task_id', keeping both 'result_status' columns
+    # Merge the two dataframes on 'task_id'
     merged_df = df.merge(user_results_df[['task_id', 'user_result_status']], on='task_id', how='left')
+
+    # Fill missing 'user_result_status' with 'N/A'
+    merged_df['user_result_status'] = merged_df['user_result_status'].fillna('N/A')
 
     from streamlit_pages.view_summary import run_summary_page
 
     # Call the summary page with the merged dataframe
     run_summary_page(merged_df, user_results_df)
+
 
 if __name__ == "__main__":
     main()

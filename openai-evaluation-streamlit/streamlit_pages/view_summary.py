@@ -11,34 +11,28 @@ def run_summary_page(df, user_results_df):
     # Add a "Back" button to return to the main page
     st.button("Back to Main", on_click=go_back_to_main)
 
-    # Ensure 'task_id' is of string type
+    # Ensure 'task_id' is of string type in both DataFrames
     df['task_id'] = df['task_id'].astype(str)
     user_results_df['task_id'] = user_results_df['task_id'].astype(str)
 
-    # If df already has a 'result_status' or 'user_result_status' column, drop it before merging
-    if 'result_status' in df.columns:
-        df = df.drop(columns=['result_status'])
-    
+    # Check if 'user_result_status' exists in the main dataset before merging and drop it to avoid conflict
     if 'user_result_status' in df.columns:
         df = df.drop(columns=['user_result_status'])
 
-    # Rename 'result_status' to 'user_result_status' in user_results_df for merging
-    user_results_df = user_results_df.rename(columns={'result_status': 'user_result_status'})
-
-    # Perform the merge with explicit suffix handling
+    # Perform the merge with 'task_id' to combine user results
     merged_df = df.merge(
-        user_results_df[['task_id', 'user_result_status']],
-        on='task_id',
-        how='left',
-        suffixes=('_main', '_user')  # Use specific suffixes to avoid conflicts
+        user_results_df[['task_id', 'user_result_status']], 
+        on='task_id', 
+        how='left'
     )
 
-    # If 'user_result_status' is missing after the merge, add it with 'N/A'
+    # If user_result_status is missing after the merge, fill it with 'N/A'
     if 'user_result_status' not in merged_df.columns:
+        st.warning("'user_result_status' column missing after merge. Filling with 'N/A'.")
         merged_df['user_result_status'] = 'N/A'
-
-    # Fill missing 'user_result_status' with 'N/A'
-    merged_df['user_result_status'] = merged_df['user_result_status'].fillna('N/A')
+    else:
+        # Fill missing user_result_status values with 'N/A'
+        merged_df['user_result_status'] = merged_df['user_result_status'].fillna('N/A')
 
     # Filter answered questions (exclude 'N/A' status)
     answered_df = merged_df[merged_df['user_result_status'] != 'N/A']
@@ -77,6 +71,3 @@ def run_summary_page(df, user_results_df):
     - **Incorrect without Instruction**: The answer was incorrect on the first attempt, without using instructions.
     - **Incorrect with Instruction**: The answer remained incorrect even after providing additional instructions.
     """)
-
-if __name__ == "__main__":
-    run_summary_page()

@@ -242,12 +242,14 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     if st.session_state.chatgpt_response:
         st.write(f"**ChatGPT's Response:** {st.session_state.chatgpt_response}")
 
-    # Only display one button at a time
-    if not st.session_state.show_instructions and not current_status.startswith("Correct"):  
-        # Show 'Send to ChatGPT' if no instructions and status is not correct
+    # Only display the button if the status is not "Correct with Instruction"
+    if not st.session_state.show_instructions and current_status != "Correct with Instruction":
+        # Show 'Send to ChatGPT' if the status is not 'Correct with Instruction'
         if st.button("Send to ChatGPT", on_click=handle_send_to_chatgpt, args=(selected_row, selected_row_index, preprocessed_data), key=f"send_chatgpt_{selected_row_index}"):
             # ChatGPT response will be processed in handle_send_to_chatgpt
             pass
+
+
 
     # If the response was incorrect, prompt for instructions
     if st.session_state.show_instructions:

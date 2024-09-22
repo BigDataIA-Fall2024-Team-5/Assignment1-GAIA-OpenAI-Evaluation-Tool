@@ -10,18 +10,19 @@ def preprocess_file(file_path):
     """Preprocess a file based on its extension and return relevant information."""
     file_extension = os.path.splitext(file_path)[1].lower()
     
+     # Check for unsupported file types
+    unsupported_types = ['.jpg', '.png', '.zip', '.mp3']
+    if file_extension in unsupported_types:
+        return f"File type '{file_extension}' is currently not supported."
+    
     if file_extension == '.txt':
         return preprocess_txt(file_path)
     elif file_extension == '.csv':
         return preprocess_csv(file_path)
     elif file_extension == '.xlsx':
         return preprocess_xlsx(file_path)
-    elif file_extension in ['.jpg', '.png']:
-        return preprocess_image(file_path)
     elif file_extension == '.jsonld':
         return preprocess_jsonld(file_path)
-    elif file_extension == '.zip':
-        return preprocess_zip(file_path)
     elif file_extension == '.docx':
         return preprocess_docx(file_path)
     elif file_extension == '.pdf':
@@ -32,8 +33,6 @@ def preprocess_file(file_path):
         return preprocess_pptx(file_path)
     elif file_extension == '.pdb':
         return preprocess_pdb(file_path)
-    elif file_extension == '.mp3':
-        return preprocess_mp3(file_path)
     else:
         return f"Unsupported file type: {file_extension}"
 
@@ -69,14 +68,6 @@ def preprocess_xlsx(file_path):
     except Exception as e:
         return f"Error processing XLSX file: {e}"
 
-def preprocess_image(file_path):
-    """Preprocess an image file by returning its size and mode."""
-    try:
-        with Image.open(file_path) as img:
-            return {"info": {"size": img.size, "mode": img.mode}}
-    except Exception as e:
-        return f"Error processing image file: {e}"
-
 def preprocess_jsonld(file_path):
     """Preprocess a .jsonld file by loading and returning its content."""
     try:
@@ -85,14 +76,6 @@ def preprocess_jsonld(file_path):
         return {"content": json.dumps(data, indent=2)}
     except Exception as e:
         return f"Error processing JSON-LD file: {e}"
-
-def preprocess_zip(file_path):
-    """Preprocess a .zip file by returning a list of its contents."""
-    try:
-        with zipfile.ZipFile(file_path, 'r') as zip_ref:
-            return {"content": zip_ref.namelist()}
-    except Exception as e:
-        return f"Error processing ZIP file: {e}"
 
 def preprocess_docx(file_path):
     """Preprocess a .docx file by reading and returning its content."""
@@ -142,15 +125,6 @@ def preprocess_pptx(file_path):
 def preprocess_pdb(file_path):
     """Preprocess a .pdb file by returning its content."""
     return read_file_content(file_path)
-
-def preprocess_mp3(file_path):
-    """Preprocess an .mp3 file by returning its metadata."""
-    try:
-        from mutagen.mp3 import MP3
-        audio = MP3(file_path)
-        return {"duration": audio.info.length, "bitrate": audio.info.bitrate}
-    except Exception as e:
-        return f"Error processing MP3 file: {e}"
 
 def read_file_content(file_path):
     """Read content from a file."""

@@ -1,8 +1,9 @@
 import os
 import streamlit as st
+import pandas as pd
 from dotenv import load_dotenv
 from scripts.api_utils.amazon_s3_utils import init_s3_client
-from scripts.api_utils.azure_sql_utils import fetch_dataframe_from_sql
+from scripts.api_utils.azure_sql_utils import fetch_dataframe_from_sql, fetch_user_results
 from scripts.api_utils.chatgpt_utils import init_openai
 from streamlit_pages.login_page import login_page
 from streamlit_pages.register_page import register_page
@@ -18,12 +19,14 @@ def main():
     st.session_state.setdefault('page', 'landing')
     st.session_state.setdefault('login_success', False)
     st.session_state.setdefault('username', '')
+    st.session_state.setdefault('user_id', None)  # Ensure 'user_id' is initialized properly
     st.session_state.setdefault('role', '')
 
     # Ensure user is logged in before accessing certain pages
     if st.session_state.page in ['main', 'explore_questions', 'admin', 'view_summary'] and not st.session_state['login_success']:
         st.error("Please login to access this page.")
         st.session_state.page = 'login'  # Redirect to login page
+        return
 
     # Display the page based on session state
     if st.session_state.page == 'landing':
@@ -58,7 +61,6 @@ def go_back_to_main():
     # Navigate back to the main page
     st.session_state.page = 'main'
 
-
 def go_to_admin():
     st.session_state.page = 'admin'
 
@@ -80,7 +82,8 @@ def go_to_admin_user_management():
 def logout():
     # Clear the session state except for 'page' to properly manage logout behavior
     for key in list(st.session_state.keys()):
-        del st.session_state[key]
+        if key != 'page':  # Do not clear 'page' to avoid resetting navigation
+            del st.session_state[key]
     st.session_state.page = 'login'  # Redirect back to login
 
 # Landing Page
@@ -111,8 +114,6 @@ def run_main_page():
     else:
         st.error("Please login to access this page.")
         st.session_state.page = 'login'
-
-
 
 # Explore Questions Page
 def run_explore_questions():
@@ -147,12 +148,42 @@ def run_explore_questions():
 
 # View Summary Page
 def run_view_summary():
+    # Ensure 'user_id' is available in session state
+    if not st.session_state.get('user_id'):
+        st.error("User ID not found. Please log in again.")
+        st.session_state.page = 'login'  # Redirect to login page
+        return
+
+    # Fetch the main dataset (GaiaDataset)
     df = fetch_dataframe_from_sql()
-    if df is not None:
-        from streamlit_pages.view_summary import run_summary_page
-        run_summary_page(df)
+    
+    # Fetch user-specific results (returns None if no results are found)
+    user_results_df = fetch_user_results(st.session_state['user_id'])
+
+    # Ensure the main dataset was fetched successfully
+    if df is None:
+        st.error("Failed to load the main dataset from Azure SQL.")
+        return
+    
+    # If user_results_df is None (no results found for the user), create an empty DataFrame
+    if user_results_df is None or user_results_df.empty:
+        st.write("No user results found. Please complete some questions.")
+        user_results_df = pd.DataFrame(columns=['task_id', 'user_result_status', 'chatgpt_response'])  # Empty DataFrame
+
+    # Check if 'result_status' exists in user_results_df before renaming it
+    if 'result_status' in user_results_df.columns:
+        user_results_df = user_results_df.rename(columns={'result_status': 'user_result_status'})
     else:
-        st.error("Failed to load dataset from Azure SQL.")
+        # If 'result_status' doesn't exist, ensure a placeholder column is there
+        user_results_df['user_result_status'] = 'N/A'
+
+    # Merge the two dataframes on 'task_id', keeping both 'result_status' columns
+    merged_df = df.merge(user_results_df[['task_id', 'user_result_status']], on='task_id', how='left')
+
+    from streamlit_pages.view_summary import run_summary_page
+
+    # Call the summary page with the merged dataframe
+    run_summary_page(merged_df, user_results_df)
 
 if __name__ == "__main__":
     main()

@@ -59,7 +59,7 @@ def handle_send_to_chatgpt(selected_row, selected_row_index, preprocessed_data):
         st.session_state.final_status_updated = True
 
         # Show instructions if the response is incorrect
-        if status.startswith("Incorrect"):
+        if status in ['Correct with Instruction', 'Incorrect with Instruction', 'Incorrect without Instruction']:
             st.session_state.show_instructions = True
         else:
             st.session_state.show_instructions = False  # Hide instructions if Correct
@@ -216,16 +216,15 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
     # Update session state for instructions when selecting a new question
     if 'last_selected_row_index' not in st.session_state or st.session_state.last_selected_row_index != selected_row_index:
-        # Reset instructions if status is "Correct"
-        if current_status.startswith('Correct'):
-            st.session_state.instructions = ""  # Clear instructions
-            st.session_state.show_instructions = False  # Hide instructions
-        elif current_status.startswith('Incorrect'):
-            st.session_state.instructions = selected_row.get('Annotator_Metadata_Steps', '')
-            st.session_state.show_instructions = True  # Show instructions
+        # Conditions to show the Edit Instructions box:
+        # Show instructions if the result is 'Correct with Instructions', 'Incorrect with Instructions', or 'Incorrect without Instructions'
+        if current_status in ['Correct with Instruction', 'Incorrect with Instruction', 'Incorrect without Instruction']:
+            st.session_state.instructions = selected_row.get('Annotator_Metadata_Steps', '')  # Pre-fill from dataset if available
+            st.session_state.show_instructions = True  # Show the instructions box
         else:
+            #st.session_state.instructions = ""  # Clear instructions
             st.session_state.instructions = selected_row.get('Annotator_Metadata_Steps', '')
-            st.session_state.show_instructions = False  # Default to not showing instructions
+            st.session_state.show_instructions = False  # Hide instructions by default
 
         st.session_state.last_selected_row_index = selected_row_index
         st.session_state.chatgpt_response = None  # Reset ChatGPT response
@@ -249,7 +248,7 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
         st.session_state.instructions = st.text_area(
             "Edit Instructions (Optional)",
             value=st.session_state.instructions,
-            key=f"instructions_{selected_row_index}"  # Unique key
+            key=f"instructions_{selected_row_index}"  # Unique key for each question
         )
 
         # Button to send instructions to ChatGPT
@@ -272,8 +271,8 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
                 # Update the user-specific status in the Azure SQL Database
                 update_user_result(user_id=user_id, task_id=selected_row['task_id'], status=status, chatgpt_response=chatgpt_response)
 
-                # Update show_instructions flag based on new status
-                if status.startswith("Incorrect"):
+                 # Update show_instructions flag based on new status
+                if status in ['Correct with Instruction', 'Incorrect with Instruction', 'Incorrect without Instruction']:
                     st.session_state.show_instructions = True
                 else:
                     st.session_state.show_instructions = False

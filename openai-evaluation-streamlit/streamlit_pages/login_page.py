@@ -1,6 +1,7 @@
 import streamlit as st
-from scripts.api_utils.azure_sql_utils import fetch_user_from_sql
+from scripts.api_utils.azure_sql_utils import fetch_user_from_sql, fetch_user_results
 import bcrypt
+import pandas as pd
 
 # Callback function to go back to the register page
 def go_to_register():
@@ -14,14 +15,26 @@ def on_login_click():
     username = st.session_state['username']
     password = st.session_state['password']
     
+    # Fetch user data from database
     user = fetch_user_from_sql(username)
+    
     if user:
         stored_password = user['password'].encode('utf-8')  # Stored hashed password from DB
         if bcrypt.checkpw(password.encode('utf-8'), stored_password):
+            # Store user info in session state
             st.session_state['user_id'] = user['user_id']
             st.session_state['username'] = user['username']
             st.session_state['role'] = user['role']
+            st.session_state['login_success'] = True  # Set login_success to True
             st.success(f"Welcome, {username}!")
+
+            # Fetch user-specific results after login and store in session state
+            user_results = fetch_user_results(st.session_state['user_id'])
+            if user_results is not None and not user_results.empty:
+                st.session_state['user_results'] = user_results
+            else:
+                # Initialize an empty user_results DataFrame if the user has no data yet
+                st.session_state['user_results'] = pd.DataFrame()  # Empty DataFrame for a new user
 
             # Redirect based on role
             if user['role'] == 'admin':

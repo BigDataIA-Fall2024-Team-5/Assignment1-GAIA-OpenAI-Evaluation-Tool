@@ -39,8 +39,8 @@ CREATE TABLE user_results (
     result_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id NVARCHAR(50),
     task_id NVARCHAR(50),
-    question NVARCHAR(MAX),
     result_status NVARCHAR(50),
+    chatgpt_response NVARCHAR(MAX),  -- Add column to store ChatGPT response
     created_date DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );

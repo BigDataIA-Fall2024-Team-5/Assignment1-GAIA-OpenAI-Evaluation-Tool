@@ -14,11 +14,18 @@ from streamlit_pages.admin_user_management import admin_user_management_page
 load_dotenv()
 
 def main():
-    # Initialize session state to control navigation
-    if 'page' not in st.session_state:
-        st.session_state.page = 'landing'  # Set the initial page to 'landing'
+    # Set default values for session state using setdefault()
+    st.session_state.setdefault('page', 'landing')
+    st.session_state.setdefault('login_success', False)
+    st.session_state.setdefault('username', '')
+    st.session_state.setdefault('role', '')
 
-    # Display the current page based on session state
+    # Ensure user is logged in before accessing certain pages
+    if st.session_state.page in ['main', 'explore_questions', 'admin', 'view_summary'] and not st.session_state['login_success']:
+        st.error("Please login to access this page.")
+        st.session_state.page = 'login'  # Redirect to login page
+
+    # Display the page based on session state
     if st.session_state.page == 'landing':
         run_landing_page()
     elif st.session_state.page == 'login':
@@ -42,8 +49,15 @@ def main():
 def go_to_login():
     st.session_state.page = 'login'
 
-def go_to_main():
+def go_back_to_main():
+    # Optionally reset any page-specific states here if needed
+    st.session_state.show_instructions = False
+    st.session_state.current_page = 0
+    st.session_state.last_selected_row_index = None
+
+    # Navigate back to the main page
     st.session_state.page = 'main'
+
 
 def go_to_admin():
     st.session_state.page = 'admin'
@@ -64,12 +78,10 @@ def go_to_admin_user_management():
     st.session_state.page = 'admin_user_management'
 
 def logout():
-    # Reset session state variables related to login
-    st.session_state['username'] = ''
-    st.session_state['password'] = ''
-    st.session_state['role'] = ''
-    st.session_state['login_success'] = False
-    st.session_state.page = 'login'  # Navigate back to login page
+    # Clear the session state except for 'page' to properly manage logout behavior
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.session_state.page = 'login'  # Redirect back to login
 
 # Landing Page
 def run_landing_page():
@@ -79,16 +91,28 @@ def run_landing_page():
 
 # Main Page
 def run_main_page():
-    st.title("Main Page")
-    st.write(f"Welcome {st.session_state['username']}!")
+    # Ensure session keys like 'username' and 'login_success' exist
+    if st.session_state.get('login_success', False):
+        st.title("Main Page")
+        
+        # Display username if available, else display default welcome message
+        if st.session_state.get('username'):  # Check if username is present in session state
+            st.write(f"Welcome {st.session_state['username']}!")  # Display username
+        else:
+            st.write("Welcome!")  # Fallback message in case username is missing
 
-    # Admin section (if the user is an admin)
-    if st.session_state.get('role') == 'admin':
-        st.button("Admin Page", on_click=go_to_admin)
-    
-    st.button("Explore Questions", on_click=go_to_explore_questions)
-    st.button("View Summary", on_click=go_to_view_summary)
-    st.button("Log Out", on_click=logout)
+        # Admin section (if the user is an admin)
+        if st.session_state.get('role') == 'admin':
+            st.button("Admin Page", on_click=go_to_admin)
+
+        st.button("Explore Questions", on_click=go_to_explore_questions)
+        st.button("View Summary", on_click=go_to_view_summary)
+        st.button("Log Out", on_click=logout)
+    else:
+        st.error("Please login to access this page.")
+        st.session_state.page = 'login'
+
+
 
 # Explore Questions Page
 def run_explore_questions():
@@ -98,18 +122,17 @@ def run_explore_questions():
     bucket_name = os.getenv('S3_BUCKET_NAME')
 
     # Error handling for missing environment variables
-    missing_vars = []
     if not openai_api_key:
-        missing_vars.append("OPENAI_API_KEY")
+        st.error("Missing OPENAI_API_KEY.")
+        return
     if not aws_access_key:
-        missing_vars.append("AWS_ACCESS_KEY")
+        st.error("Missing AWS_ACCESS_KEY.")
+        return
     if not aws_secret_key:
-        missing_vars.append("AWS_SECRET_KEY")
+        st.error("Missing AWS_SECRET_KEY.")
+        return
     if not bucket_name:
-        missing_vars.append("S3_BUCKET_NAME")
-
-    if missing_vars:
-        st.error(f"Missing environment variables: {', '.join(missing_vars)}.")
+        st.error("Missing S3_BUCKET_NAME.")
         return
 
     init_openai(openai_api_key)

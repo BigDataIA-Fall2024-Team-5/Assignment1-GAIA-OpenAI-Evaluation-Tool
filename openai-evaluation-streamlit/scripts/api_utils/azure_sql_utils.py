@@ -1,81 +1,68 @@
-#azure_sql_utils
 import os
 import pandas as pd
 import bcrypt
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.types import NVARCHAR, Integer, DateTime
-from sqlalchemy.engine import Row  # For type hinting
 from sqlalchemy.exc import SQLAlchemyError
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 def get_sqlalchemy_connection_string():
     """
-    Constructs an SQLAlchemy connection string for connecting to Azure SQL Database.
-    
-    Returns:
-        str: SQLAlchemy connection string.
+    Constructs an SQLAlchemy connection string for Azure SQL Database.
     """
     server = os.getenv('AZURE_SQL_SERVER')
     user = os.getenv('AZURE_SQL_USER')
     password = os.getenv('AZURE_SQL_PASSWORD')
     database = os.getenv('AZURE_SQL_DATABASE')
 
-    connection_string = f"mssql+pymssql://{user}:{password}@{server}/{database}"
-    return connection_string
+    return f"mssql+pymssql://{user}:{password}@{server}/{database}"
 
+# Function to insert a DataFrame into the SQL table (e.g., for initial data setup)
 def insert_dataframe_to_sql(df, table_name):
     """
-    Inserts a DataFrame into the specified table in Azure SQL Database using SQLAlchemy.
-    If the table already exists, it drops the table and creates it again.
-    
-    Args:
-        df (pd.DataFrame): The DataFrame to be inserted.
-        table_name (str): The name of the table in Azure SQL Database.
+    Inserts DataFrame into Azure SQL Database (replaces existing table).
     """
     try:
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
-        
-        # Drop the table if it exists
+
+        # Drop table if it exists
         with engine.connect() as connection:
-            # Use an explicit transaction block for dropping the table
             transaction = connection.begin()
             try:
                 drop_table_query = text(f"IF OBJECT_ID('{table_name}', 'U') IS NOT NULL DROP TABLE {table_name};")
                 connection.execute(drop_table_query)
                 transaction.commit()
-                print(f"Table '{table_name}' dropped successfully.")
-            except Exception as drop_error:
+            except Exception as e:
                 transaction.rollback()
-                print(f"Error dropping table '{table_name}': {drop_error}")
-                return  # Exit if unable to drop the table
+                print(f"Error dropping table: {e}")
+                return
 
-        # Create the table
+        # Create the table and insert the data
         with engine.connect() as connection:
             create_table_query = text(f"""
-            CREATE TABLE {table_name} (
-                task_id NVARCHAR(50) PRIMARY KEY, 
-                Question NVARCHAR(MAX),
-                Level INT,
-                FinalAnswer NVARCHAR(MAX),
-                file_name NVARCHAR(255),
-                file_path NVARCHAR(MAX),
-                Annotator_Metadata_Steps NVARCHAR(MAX),
-                Annotator_Metadata_Number_of_steps NVARCHAR(MAX),
-                Annotator_Metadata_How_long_did_this_take NVARCHAR(100),
-                Annotator_Metadata_Tools NVARCHAR(MAX),
-                Annotator_Metadata_Number_of_tools INT,
-                result_status NVARCHAR(50) DEFAULT 'N/A',
-                created_date DATETIME
-            );
+                CREATE TABLE {table_name} (
+                    task_id NVARCHAR(50) PRIMARY KEY,
+                    Question NVARCHAR(MAX),
+                    Level INT,
+                    FinalAnswer NVARCHAR(MAX),
+                    file_name NVARCHAR(255),
+                    file_path NVARCHAR(MAX),
+                    Annotator_Metadata_Steps NVARCHAR(MAX),
+                    Annotator_Metadata_Number_of_steps NVARCHAR(MAX),
+                    Annotator_Metadata_How_long_did_this_take NVARCHAR(100),
+                    Annotator_Metadata_Tools NVARCHAR(MAX),
+                    Annotator_Metadata_Number_of_tools INT,
+                    result_status NVARCHAR(50) DEFAULT 'N/A',
+                    created_date DATETIME
+                );
             """)
             connection.execute(create_table_query)
-            print(f"Table '{table_name}' created successfully.")
 
-        # Insert the DataFrame into the Azure SQL table
+        # Insert DataFrame into SQL table
         df.to_sql(table_name, engine, if_exists='append', index=False, dtype={
             'task_id': NVARCHAR(length=50),
             'Question': NVARCHAR(length='max'),
@@ -91,77 +78,101 @@ def insert_dataframe_to_sql(df, table_name):
             'result_status': NVARCHAR(length=50),
             'created_date': DateTime
         })
-        
-        print(f"Data successfully inserted into {table_name} in Azure SQL Database.")
-        
+
+        print(f"Data successfully inserted into {table_name}.")
+    
     except Exception as e:
-        print(f"Error inserting data into Azure SQL Database: {e}")
+        print(f"Error inserting data into Azure SQL: {e}")
 
-
+# Function to fetch the dataset (default, e.g., main table like GaiaDataset)
 def fetch_dataframe_from_sql(table_name='GaiaDataset'):
     """
-    Fetches the Gaia dataset from the Azure SQL Database and returns it as a pandas DataFrame.
-    
-    Args:
-        table_name (str): The name of the table to fetch the data from.
-    
-    Returns:
-        pd.DataFrame: The dataset as a DataFrame, or None if fetching fails.
+    Fetches data from Azure SQL as a DataFrame.
     """
     try:
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
         
-        # Fetch data using pandas read_sql
         query = f"SELECT * FROM {table_name}"
         df = pd.read_sql(query, con=engine)
         return df
-
+    
     except Exception as e:
-        print(f"Error fetching data from Azure SQL Database: {e}")
+        print(f"Error fetching data from Azure SQL: {e}")
         return None
 
-
-def update_result_status(task_id, status, table_name='GaiaDataset'):
+# New function to fetch user-specific results
+def fetch_user_results(user_id):
     """
-    Updates the result_status for a specific task in the Azure SQL Database using SQLAlchemy.
-    
-    Args:
-        task_id (str): The task_id of the row to update.
-        status (str): The new status to set.
-        table_name (str): The name of the table to update the data in.
+    Fetches the user-specific results from the Azure SQL Database.
     """
     try:
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
         
+        query = text("""
+            SELECT 
+                user_id, 
+                task_id, 
+                result_status, 
+                chatgpt_response 
+            FROM user_results 
+            WHERE user_id = :user_id
+        """)
         with engine.connect() as connection:
-            # Start a transaction
+            result = connection.execute(query, {"user_id": user_id}).fetchall()
+
+        if result:
+            df = pd.DataFrame(result, columns=['user_id', 'task_id', 'result_status', 'chatgpt_response'])
+            return df
+        else:
+            return None  # No results found for the user
+
+    except Exception as e:
+        print(f"Error fetching user results: {e}")
+        return None
+
+
+# Function to update user-specific result and ChatGPT response
+def update_user_result(user_id, task_id, status, chatgpt_response, table_name='user_results'):
+    """
+    Updates user-specific result and ChatGPT response in the user_results table.
+    """
+    try:
+        connection_string = get_sqlalchemy_connection_string()
+        engine = create_engine(connection_string)
+
+        with engine.connect() as connection:
             transaction = connection.begin()
             try:
-                # Use the text() function to wrap the SQL query string
-                update_query = text(f"UPDATE {table_name} SET result_status = :status WHERE task_id = :task_id")
-                connection.execute(update_query, {'status': status, 'task_id': task_id})
-                
-                # Commit the transaction
+                update_query = text(f"""
+                    MERGE INTO {table_name} AS target
+                    USING (SELECT :user_id AS user_id, :task_id AS task_id, :status AS status, :chatgpt_response AS chatgpt_response) AS source
+                    ON target.user_id = source.user_id AND target.task_id = source.task_id
+                    WHEN MATCHED THEN
+                        UPDATE SET result_status = source.status, chatgpt_response = source.chatgpt_response
+                    WHEN NOT MATCHED THEN
+                        INSERT (user_id, task_id, result_status, chatgpt_response) 
+                        VALUES (source.user_id, source.task_id, source.status, source.chatgpt_response);
+                """)
+                connection.execute(update_query, {
+                    'user_id': user_id, 
+                    'task_id': task_id, 
+                    'status': status, 
+                    'chatgpt_response': chatgpt_response
+                })
                 transaction.commit()
-                print(f"Updated result_status for task_id {task_id} to {status}.")
             except Exception as e:
                 transaction.rollback()
-                print(f"Transaction rolled back due to an error: {e}")
-        
-    except Exception as e:
-        print(f"Error updating result_status in Azure SQL Database: {e}")
+                print(f"Transaction error: {e}")
 
+    except Exception as e:
+        print(f"Error updating user result: {e}")
+
+# Function to fetch user information based on username
 def fetch_user_from_sql(username):
     """
-    Fetches a user from the Azure SQL Database based on the username.
-    
-    Args:
-        username (str): The username to fetch from the database.
-    
-    Returns:
-        dict: The user record as a dictionary, or None if the user does not exist.
+    Fetch user information based on username.
     """
     try:
         connection_string = get_sqlalchemy_connection_string()
@@ -170,31 +181,21 @@ def fetch_user_from_sql(username):
         query = text(f"SELECT user_id, username, password, role FROM users WHERE username = :username")
         with engine.connect() as connection:
             result = connection.execute(query, {"username": username}).fetchone()
-        
-        # Check if a result was returned
-        if result:
-            # Convert the result (Row object) to a dictionary
-            user_dict = dict(result._mapping)  # Use _mapping to safely convert to a dict
-            return user_dict
-        else:
-            return None  # User not found
 
+        if result:
+            return dict(result._mapping)
+        return None
+    
     except Exception as e:
-        print(f"Error fetching user from Azure SQL Database: {e}")
+        print(f"Error fetching user: {e}")
         return None
 
-
+# Function to insert a new user with a hashed password
 def insert_user_to_sql(username, password, role):
     """
-    Inserts a new user into the Azure SQL Database with hashed password.
-    
-    Args:
-        username (str): The username to insert.
-        password (str): The plain-text password (it will be hashed before inserting).
-        role (str): The role of the user ('admin' or 'user').
+    Insert new user with hashed password.
     """
     try:
-        # Hash the password using bcrypt
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         connection_string = get_sqlalchemy_connection_string()
@@ -204,44 +205,44 @@ def insert_user_to_sql(username, password, role):
             INSERT INTO users (user_id, username, password, role)
             VALUES (NEWID(), :username, :password, :role)
         """)
-
-        # Use a transaction block to ensure data integrity
+        
         with engine.connect() as connection:
-            transaction = connection.begin()  # Begin a transaction
+            transaction = connection.begin()
             try:
-                # Execute the insert query
                 connection.execute(insert_user_query, {"username": username, "password": hashed_password, "role": role})
-
-                # Commit the transaction if no errors occurred
                 transaction.commit()
                 print(f"User '{username}' added successfully.")
             except SQLAlchemyError as e:
-                # Rollback the transaction in case of an error
                 transaction.rollback()
-                print(f"Error inserting user into Azure SQL Database: {e}")
+                print(f"Error inserting user: {e}")
+    
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"Unexpected error: {e}")
 
+# Function to fetch all users from the database
 def fetch_all_users():
+    """
+    Fetch all users from the database.
+    """
     try:
-        connection_string = get_sqlalchemy_connection_string()  # Assuming this function is defined elsewhere
+        connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
 
-        query = text("SELECT user_id, username, role FROM users")  # Wrap query in text()
-
+        query = text("SELECT user_id, username, role FROM users")
         with engine.connect() as connection:
             result = connection.execute(query).fetchall()
 
-        # Convert result rows to a list of dictionaries using row._asdict()
-        users = [row._asdict() for row in result]
-        return users
+        return [row._asdict() for row in result]
+    
     except Exception as e:
         print(f"Error fetching users: {e}")
         return None
 
-
-
+# Function to remove a user from the database
 def remove_user(username):
+    """
+    Remove a user from the database.
+    """
     try:
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
@@ -251,17 +252,21 @@ def remove_user(username):
             transaction = connection.begin()
             try:
                 result = connection.execute(query, {"username": username})
-                transaction.commit()  # Commit transaction
+                transaction.commit()
                 return result.rowcount > 0
             except SQLAlchemyError as e:
-                transaction.rollback()  # Rollback if error occurs
+                transaction.rollback()
                 print(f"Error removing user: {e}")
                 return False
     except Exception as e:
         print(f"Error: {e}")
         return False
 
+# Function to promote a user to admin role
 def promote_to_admin(username):
+    """
+    Promote a user to admin role.
+    """
     try:
         connection_string = get_sqlalchemy_connection_string()
         engine = create_engine(connection_string)
@@ -271,10 +276,10 @@ def promote_to_admin(username):
             transaction = connection.begin()
             try:
                 result = connection.execute(query, {"username": username})
-                transaction.commit()  # Commit transaction
+                transaction.commit()
                 return result.rowcount > 0
             except SQLAlchemyError as e:
-                transaction.rollback()  # Rollback if error occurs
+                transaction.rollback()
                 print(f"Error promoting user: {e}")
                 return False
     except Exception as e:

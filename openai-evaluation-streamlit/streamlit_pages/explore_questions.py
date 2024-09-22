@@ -186,23 +186,36 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     downloaded_file_path = None
     preprocessed_data = None
 
+    file_name = selected_row.get('file_name', None)
+    file_url = selected_row.get('file_path', None)
+    downloaded_file_path = None
+    preprocessed_data = None
+
     if file_name:
         st.write(f"**File Name:** {file_name}")
         if file_url:
             st.write(f"**File Path (URL):** {file_url}")
-        
-        if bucket_name:
-            downloaded_file_path = download_file_from_s3(file_name, bucket_name, temp_file_dir, s3_client)
-            
-            if downloaded_file_path:
-                st.write(f"File downloaded successfully to: {downloaded_file_path}")
 
-                # Preprocess the file (pass the downloaded file to the preprocessing function)
-                preprocessed_data = preprocess_file(downloaded_file_path)
-            else:
-                st.error(f"Failed to download the file {file_name} from S3.")
+        file_extension = os.path.splitext(file_name)[1].lower()
+        unsupported_types = ['.jpg', '.png', '.zip', '.mp3']
+
+        if file_extension in unsupported_types:
+            st.error(f"File type '{file_extension}' is currently not supported")
         else:
-            st.error(f"Invalid bucket name: {bucket_name}. Please check the environment variables.")
+            if bucket_name:
+                downloaded_file_path = download_file_from_s3(file_name, bucket_name, temp_file_dir, s3_client)
+
+                if downloaded_file_path:
+                    st.write(f"File downloaded successfully to: {downloaded_file_path}")
+                    preprocessed_data = preprocess_file(downloaded_file_path)
+                    if isinstance(preprocessed_data, str) and "not supported" in preprocessed_data:
+                        st.error(preprocessed_data)
+                    else:
+                        pass
+                else:
+                    st.error(f"Failed to download the file {file_name} from S3.")
+            else:
+                st.error(f"Invalid bucket name: {bucket_name}. Please check the environment variables.")
     else:
         st.info("No file associated with this question.")
 

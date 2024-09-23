@@ -1,3 +1,4 @@
+#explore_questions.py
 import os
 import streamlit as st
 import pandas as pd
@@ -24,13 +25,15 @@ def go_back_to_main():
     # Navigate back to the main page without clearing username/session data
     st.session_state.page = 'main'
 
-
 # Callback function for handling 'Send to ChatGPT'
 def handle_send_to_chatgpt(selected_row, selected_row_index, preprocessed_data):
     user_id = st.session_state.get('user_id', 'default_user')  # Get user ID from session
 
     # Get the current status from the user_results table
     current_status = st.session_state.user_results.loc[selected_row_index, 'user_result_status']
+
+    # Get the response status from the user_results table
+    chatgpt_response = st.session_state.user_results.loc[selected_row_index, 'chatgpt_response']
 
     # Determine if instructions should be used based on the current status
     use_instructions = current_status.startswith("Incorrect")
@@ -48,7 +51,7 @@ def handle_send_to_chatgpt(selected_row, selected_row_index, preprocessed_data):
         
         # Update the status in session state immediately
         st.session_state.user_results.at[selected_row_index, 'user_result_status'] = status
-
+    
         # Update the status in the Azure SQL Database (backend)
         update_user_result(user_id=user_id, task_id=selected_row['task_id'], status=status, chatgpt_response=chatgpt_response)
 
@@ -63,7 +66,6 @@ def handle_send_to_chatgpt(selected_row, selected_row_index, preprocessed_data):
             st.session_state.show_instructions = True
         else:
             st.session_state.show_instructions = False  # Hide instructions if Correct
-
 
 def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     st.title("GAIA Dataset QA with ChatGPT")
@@ -104,23 +106,34 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     if user_results is None or user_results.empty:
         user_results = pd.DataFrame({
             'task_id': st.session_state.df['task_id'],
-            'user_result_status': ['N/A'] * len(st.session_state.df)
+            'user_result_status': ['N/A'] * len(st.session_state.df),
+            'chatgpt_response' : ['N/A'] * len(st.session_state.df)
         })
 
     # Merge user_results with GaiaDataset
     user_results = user_results.rename(columns={'result_status': 'user_result_status'})
-
-    merged_df = st.session_state.df.merge(
-        user_results[['task_id', 'user_result_status']],
-        on='task_id',
-        how='left'
-    )
+    user_results = user_results.rename(columns={'gpt_response': 'chatgpt_response'})
+  
+    if 'task_id' in user_results.columns and 'user_result_status' in user_results.columns and 'chatgpt_response' in user_results.columns:
+        merged_df = st.session_state.df.merge(
+            user_results[['task_id', 'user_result_status', 'chatgpt_response']],
+            on='task_id',
+            how='left'
+        )
+    else:
+        st.error("Necessary columns for merging ('task_id', 'user_result_status', or 'chatgpt_response') are missing.")
+        return
+    
+    # Check if 'chatgpt_response' exists in user_results; if not, create it
+    if 'chatgpt_response' not in user_results.columns:
+        user_results['chatgpt_response'] = None  # Initialize with None or a default value
 
     # After merging user_results with GaiaDataset, fill missing 'user_result_status' with 'N/A'
     merged_df['user_result_status'] = merged_df['user_result_status'].fillna('N/A')
+    merged_df['chatgpt_response'] = merged_df['chatgpt_response'].fillna('N/A')
 
     st.session_state.user_results = merged_df  # Store merged DataFrame in session state
-
+    
     # Add a Refresh button
     if st.button("Refresh", key="refresh_button"):
         # Reload the dataset from Azure SQL Database and reset session state
@@ -213,6 +226,7 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
 
     # Get the current status from user-specific results
     current_status = selected_row['user_result_status']
+    chatgpt_response = selected_row['chatgpt_response']
 
     # Update session state for instructions when selecting a new question
     if 'last_selected_row_index' not in st.session_state or st.session_state.last_selected_row_index != selected_row_index:
@@ -280,10 +294,22 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
                 # Store the new ChatGPT response
                 st.session_state.chatgpt_response = chatgpt_response
 
-    # Display the final status
-    st.write(f"**Final Result Status:** {current_status}")
+    # Function to apply background color based on the Final Result Status
+    def style_status_based_on_final_result(status):
+        # Strip any leading/trailing spaces and make the check case-insensitive
+        if status.strip().lower().startswith("correct"):
+            # Green background for Correct statuses
+            return 'background-color: #d4edda; padding: 10px; border-radius: 5px;'
+        else:
+            # Red background for non-Correct statuses
+            return 'background-color: #f8d7da; padding: 10px; border-radius: 5px;'
 
+    # Get the background color based on the Final Result Status
+    background_style = style_status_based_on_final_result(current_status)
 
+   # Apply the same background color style to both "Final Result Status" and "Latest ChatGPT Response"
+    st.markdown(f'<div style="{background_style}"><strong>Final Result Status:</strong> {current_status}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="{background_style}"><strong>Latest ChatGPT Response:</strong> {chatgpt_response}</div>', unsafe_allow_html=True)
 
     # Cleanup: Delete cache folder after processing if a file was downloaded
     # if downloaded_file_path:

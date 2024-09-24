@@ -149,7 +149,7 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     # Reset the DataFrame index to avoid KeyError issues
     st.session_state.df.reset_index(drop=True, inplace=True)
     st.session_state.user_results.reset_index(drop=True, inplace=True)
-
+    
     # Pagination controls at the very top
     col1, col2 = st.columns([1, 1])
     if col1.button("Previous", key="previous_button"):
@@ -174,10 +174,35 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     if 'Question' not in current_df.columns:
         st.error("'Question' column is missing from the dataset!")
         return
-
+  
     # Display the questions in a compact table
-    st.write(f"Page {current_page + 1} of {total_pages}")
-    st.dataframe(current_df[['Question']], height=200)
+    # st.write(f"Page {current_page + 1} of {total_pages}")
+    # st.dataframe(current_df[['Question']], height=200)
+
+    # Function to apply dark and bold border to the dataframe
+    def style_dataframe_with_borders(df):
+        return df.style.set_table_styles(
+            [{
+                'selector': 'table',
+                'props': [('border', '3px solid black'), ('width', '100%')]  # Set a bold, dark border and full width
+            }, {
+                'selector': 'th',
+                'props': [('border', '2px solid black'), ('font-weight', 'bold')]  # Bold border and font for headers
+            }, {
+                'selector': 'td',
+                'props': [('border', '2px solid black'), ('width', '100%')]  # Ensure the cell takes full width
+            }]
+        )
+
+    # Assuming `current_df` is the dataframe you're displaying
+    # Filter the dataframe to show only the 'Question' column
+    question_df = current_df[['Question']]
+
+    # Apply styling to the 'Question' dataframe
+    styled_df = style_dataframe_with_borders(question_df)
+
+    # Display the styled dataframe in Streamlit, using container width to expand the table
+    st.dataframe(styled_df, use_container_width=True)
 
     # Use a selectbox to choose a question index from the current page
     selected_row_index = st.selectbox(
@@ -186,6 +211,8 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
         format_func=lambda x: f"{x}: {current_df.loc[x, 'Question'][:50]}...",  # Adjust format_func
         key=f"selectbox_{current_page}"
     )
+
+
 
     # Display question details if a row is selected
     selected_row = current_df.loc[selected_row_index]

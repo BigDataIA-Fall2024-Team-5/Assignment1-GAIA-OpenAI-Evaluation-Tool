@@ -10,6 +10,8 @@ Welcome to the **OpenAI Evaluation App**! This application leverages OpenAI's Ch
 - **File Retrieval**: For questions with associated files (e.g., images, audio), the app downloads and uploads these files to AWS S3 for secure storage.
 - **ChatGPT Evaluation**: The core functionality revolves around using ChatGPT to generate answers for each question. The generated responses are then compared to the final answers in the dataset to determine their accuracy.
 - **AWS S3 and Azure SQL Integration**: Files are securely stored in AWS S3, and processed data (including file paths and evaluation results) is pushed to an Azure SQL database.
+- **User and Admin Management**: The app includes a role-based access control system. Admins can manage users, promote them to admin roles, or delete them. The system also includes a registration page for new users.
+- **Database Setup**: A setup script (`setup_database.py`) initializes Azure SQL tables and inserts default users.
 - **Visualization with Matplotlib**: The app provides a visual representation of the evaluation results, helping users easily interpret ChatGPT's performance.
 
 ## Why This App?
@@ -17,6 +19,8 @@ Welcome to the **OpenAI Evaluation App**! This application leverages OpenAI's Ch
 This app makes it easy to:
 - **Automate the evaluation** of large datasets using OpenAI's language models.
 - **Handle multimedia files** (e.g., images, audio) in conjunction with textual data.
+- **Manage users and roles** with admin-level control for promoting or deleting users.
+- **Setup Azure SQL tables** with the provided `setup_database.py` script.
 - **Visualize results** and store them for future analysis with the help of cloud storage (AWS S3) and database systems (Azure SQL).
 - **Enhance efficiency** in handling complex datasets by automating data preprocessing and storage.
 

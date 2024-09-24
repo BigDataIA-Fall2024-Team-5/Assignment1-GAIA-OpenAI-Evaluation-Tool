@@ -74,35 +74,35 @@ Ensure you have the following installed:
 - Hugging Face account and token
 
 ### Steps
-# 1. Clone the repository and install dependencies using Poetry:
-git clone https://github.com/your-username/openai-evaluation-streamlit.git  
-cd openai-evaluation-streamlit  
-poetry install
 
-# 2. Set up environment variables:
-# Create a `.env` file in the root of the project and add your credentials for AWS, Azure SQL, OpenAI, Hugging Face, and S3 bucket:
+1. **Clone the repository** and install dependencies using Poetry:
 
-HF_TOKEN='your-hugging-face-token'  
-OPENAI_API_KEY='your-openai-api-key'  
-AWS_ACCESS_KEY='your-aws-access-key'  
-AWS_SECRET_KEY='your-aws-secret-key'  
-S3_BUCKET_NAME='your-s3-bucket-name'  
-GAIA_REPO_URL='https://huggingface.co/datasets/gaia-benchmark/GAIA'  
-AZURE_SQL_SERVER='your-azure-sql-server'  
-AZURE_SQL_DATABASE='your-azure-sql-database'  
-AZURE_SQL_TABLE='your-azure-sql-table'  
-AZURE_SQL_USER='your-azure-sql-username'  
-AZURE_SQL_PASSWORD='your-azure-sql-password'
+   git clone https://github.com/your-username/openai-evaluation-streamlit.git  
+   cd openai-evaluation-streamlit  
+   poetry install
 
-# 3. Set up the Azure SQL Database:
-# Before running the app, set up the database by running the `setup_database.py` script:
+2. **Set up environment variables**:
 
-poetry run python scripts/setup_database.py
+   Create a `.env` file in the root of the project and add your credentials for AWS, Azure SQL, OpenAI, Hugging Face, and S3 bucket:
 
-# 4. Run the application:
-# Start the Streamlit app using the following command:
+   HF_TOKEN='your-hugging-face-token'  
+   OPENAI_API_KEY='your-openai-api-key'  
+   AWS_ACCESS_KEY='your-aws-access-key'  
+   AWS_SECRET_KEY='your-aws-secret-key'  
+   S3_BUCKET_NAME='your-s3-bucket-name'  
+   GAIA_REPO_URL='https://huggingface.co/datasets/gaia-benchmark/GAIA'  
+   AZURE_SQL_SERVER='your-azure-sql-server'  
+   AZURE_SQL_DATABASE='your-azure-sql-database'  
+   AZURE_SQL_TABLE='your-azure-sql-table'  
+   AZURE_SQL_USER='your-azure-sql-username'  
+   AZURE_SQL_PASSWORD='your-azure-sql-password'  
 
-streamlit run newapp.py
+3. **Run the application**:
+
+   Start the Streamlit app using the following command:
+
+   streamlit run newapp.py
+
 
 ## Usage
 

@@ -1,4 +1,3 @@
-#chatgpt_utils
 import openai
 import streamlit as st
 
@@ -8,57 +7,68 @@ def init_openai(api_key):
 
 # Function to send a question and preprocessed file data to ChatGPT
 def get_chatgpt_response(question, instructions=None, preprocessed_data=None):
-    # Construct the message for the Chat API
-    messages = [
-        {
-            "role": "system", 
-            "content": (
-                "You are a helpful assistant. Provide clear and concise responses to questions. "
-                "Your answers should be direct and focus on the specific piece of information requested in the question. "
-                "Avoid additional context unless necessary for clarity. "
-                "For example:\n"
-                "Q: What is 2 + 2? A: 4.\n"
-                "Q: Name the capital of France. A: Paris.\n"
-                "Q: What is the chemical symbol for water? A: H2O.\n"
-                "Respond with only the essential information needed to answer the question."
-            )
-        }
-    ]
+    # Construct the system message for the Chat API
+    system_message = {
+        "role": "system",
+        "content": (
+            "You are an AI assistant specialized in providing concise, accurate answers. "
+            "Focus on the key information requested without adding unnecessary context. "
+            "Use any provided instructions or reference data to inform your answer. "
+            "For example:\n"
+            "Q: What is 2 + 2? A: 4.\n"
+            "Q: Name the capital of France. A: Paris.\n"
+            "Q: What is the chemical symbol for water? A: H2O.\n"
+            "Respond with only the essential information needed to answer the question."
+        )
+    }
     
-    # Add question and instructions to the messages
-    user_message = question
-    if instructions:
-        user_message += f"\nInstructions: {instructions}\nPlease provide only the key information in the answer."
-    
-    # Add preprocessed data if available
-    if preprocessed_data:
-        user_message += f"\nHere is the reference file details:\n{preprocessed_data}"
+    # Construct the user message with clear structure and instructions
+    user_message = f"""
+Question: {question}
 
-    user_message += "\nProvide the answer as concisely as possible."
-    messages.append({"role": "user", "content": user_message})
+Instructions: {instructions if instructions else 'No specific instructions provided.'}
+
+Reference Data: {preprocessed_data if preprocessed_data else 'No reference data available.'}
+
+Please provide a concise answer that directly addresses the question. Your response should:
+1. Be no longer than 3 sentences or 50 words, whichever is shorter.
+2. Include only essential information relevant to the question.
+3. Use precise language and avoid unnecessary elaboration.
+4. If using reference data, integrate it seamlessly without mentioning the source.
+
+Answer:
+"""
 
     # Debug print for question being sent
     print(f"Debug: Sending question to ChatGPT: {user_message}")
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # Use 'gpt-3.5-turbo' or 'gpt-4' or 'gpt-4-turbo' or 'gpt-4o-mini'
-            messages=messages,
-            temperature=0.3,  # Lower temperature to encourage more direct answers
+            model="gpt-3.5-turbo",  # Keep the specified model version
+            messages=[system_message, {"role": "user", "content": user_message}],
+            temperature=0.2,  # Lower temperature for more focused responses
+            max_tokens=100,  # Limit token count to encourage brevity
+            top_p=0.9,  # Slightly reduce randomness in token selection
+            frequency_penalty=0.5,  # Discourage repetition
+            presence_penalty=0.5  # Encourage new concepts when appropriate
         )
+        
         # Extract and process the answer
         answer = response['choices'][0]['message']['content'].strip()
         
-        # Ensure the answer does not exceed 5 lines
-        lines = answer.split('\n')
-        if len(lines) > 5:
-            answer = '\n'.join(lines[:5])  # Limit to the first 5 lines
+        # Ensure the answer does not exceed specified constraints
+        sentences = answer.split('.')
+        words = answer.split()
         
-        return answer
+        if len(sentences) > 3:
+            answer = '. '.join(sentences[:3]) + '.'
+        if len(words) > 50:
+            answer = ' '.join(words[:50]) + '...'
+        
+        return answer.strip()
     except Exception as e:
         st.error(f"Error calling ChatGPT API: {e}")
         return None
-
 
 # Compare ChatGPT's response with the expected answer using OpenAI API
 def compare_and_update_status(row, chatgpt_response, instructions):
@@ -66,47 +76,41 @@ def compare_and_update_status(row, chatgpt_response, instructions):
     ai_engine_answer = chatgpt_response.strip()
     question = row['Question'].strip()
 
-    # Construct a generalized comparison prompt for OpenAI
-    comparison_prompt = (
-        f"The original answer is: {original_answer}\n\n"
-        f"The question was: {question}\n\n"
-        f"The AI's response was: {ai_engine_answer}\n\n"
-        "Does the AI's response contain the key piece of information that matches the original answer? "
-        "Focus on the specific information requested in the question. "
-        "Respond strictly with one word: 'YES' if the key information matches, or 'NO' if it does not. "
-        "Do not include any explanations or extra words, respond only with 'YES' or 'NO'."
-    )
+    # Construct a comparison prompt for OpenAI
+    comparison_prompt = f"""
+Question: {question}
+
+Original Answer: {original_answer}
+
+AI Response: {ai_engine_answer}
+
+Instructions:
+1. Analyze if the AI's response contains the key information present in the original answer.
+2. Focus on factual accuracy and relevance to the question.
+3. Ignore minor differences in phrasing or additional context.
+4. Respond with 'YES' if the core information matches, 'NO' if it doesn't.
+
+Does the AI's response match the key information in the original answer? Respond with only 'YES' or 'NO'.
+"""
 
     # Debug print for comparison being sent
     print(f"Debug: Sending comparison prompt to ChatGPT:\n{comparison_prompt}")
 
     try:
-        # Send the generalized comparison prompt to OpenAI
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": comparison_prompt}],
-            temperature=0,  # Zero temperature for deterministic results
+            temperature=0  # Zero temperature for deterministic results
         )
         
-        # Extract the response
         comparison_result = response['choices'][0]['message']['content'].strip().lower()
 
-        # Debug print for the response from ChatGPT
-        print(f"Debug : Received comparison response from ChatGPT: {comparison_result}")
-
-        # Normalize the result to handle variations of 'yes' and 'no'
+        # Normalize and interpret the result
         if 'yes' in comparison_result:
-            if instructions:
-                return 'Correct with Instruction'
-            else:
-                return 'Correct without Instruction'
+            return 'Correct with Instruction' if instructions else 'Correct without Instruction'
         elif 'no' in comparison_result:
-            if instructions:
-                return 'Incorrect with Instruction'
-            else:
-                return 'Incorrect without Instruction'
+            return 'Incorrect with Instruction' if instructions else 'Incorrect without Instruction'
         else:
-            # If the response is unexpected, mark it as 'Error'
             st.error(f"Unexpected response from OpenAI: {comparison_result}")
             return 'Error'
 

@@ -68,10 +68,14 @@ def handle_send_to_chatgpt(selected_row, selected_row_index, preprocessed_data):
             st.session_state.show_instructions = False  # Hide instructions if Correct
 
 def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
-    st.title("GAIA Dataset QA with ChatGPT")
+    
+
 
     # Add a "Back" button to return to the main page using a callback
     st.button("Back", on_click=go_back_to_main, key="back_button")
+
+    #st.title("GAIA Dataset QA with ChatGPT")
+    st.markdown("<h1 style='text-align: center;'>GAIA Dataset QA with ChatGPT</h1>", unsafe_allow_html=True)
 
     user_id = st.session_state.get('user_id', 'default_user')  # Fetch user_id from session state
 
@@ -151,14 +155,15 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     st.session_state.user_results.reset_index(drop=True, inplace=True)
     
     # Pagination controls at the very top
-    col1, col2 = st.columns([1, 1])
+    col1, col2 = st.columns([9, 1])  # Adjust the width ratio to push "Next" to the right
     if col1.button("Previous", key="previous_button"):
         if st.session_state.current_page > 0:
             st.session_state.current_page -= 1
 
-    if col2.button("Next", key="next_button"):
+    if col2.button("Next", key="next_button"):  # Next button is now on the right
         if st.session_state.current_page < (len(st.session_state.df) // 7):
             st.session_state.current_page += 1
+
 
     # Set pagination parameters
     page_size = 7  # Number of questions to display per page
@@ -197,6 +202,9 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
     # Assuming `current_df` is the dataframe you're displaying
     # Filter the dataframe to show only the 'Question' column
     question_df = current_df[['Question']]
+
+    # Give a name to the index column
+    question_df.index.name = 'ID'
 
     # Apply styling to the 'Question' dataframe
     styled_df = style_dataframe_with_borders(question_df)

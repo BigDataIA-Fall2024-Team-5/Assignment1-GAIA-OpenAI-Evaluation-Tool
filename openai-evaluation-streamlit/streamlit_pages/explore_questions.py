@@ -326,10 +326,10 @@ def run_streamlit_app(df=None, s3_client=None, bucket_name=None):
         # Strip any leading/trailing spaces and make the check case-insensitive
         if status.strip().lower().startswith("correct"):
             # Green background for Correct statuses
-            return 'background-color: #d4edda; padding: 10px; border-radius: 5px;'
+            return 'background-color: #38761d; padding: 10px; border-radius: 5px;'
         else:
             # Red background for non-Correct statuses
-            return 'background-color: #f8d7da; padding: 10px; border-radius: 5px;'
+            return 'background-color: #d62929; padding: 10px; border-radius: 5px;'
 
     # Get the background color based on the Final Result Status
     background_style = style_status_based_on_final_result(current_status)

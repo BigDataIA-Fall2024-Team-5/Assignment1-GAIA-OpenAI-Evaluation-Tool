@@ -1,5 +1,8 @@
 # Assignment1-GAIA-OpenAI-Evaluation-Tool
 
+Code Lab Link: https://codelabs-preview.appspot.com/?file_id=1a1lWq_iTi-cp2h0ZCZ2yJs9ST9suEgrhw78o4ldVr0M#0 
+Presentation Video Link: https://drive.google.com/file/d/1HdkIqzupZM6o4eZYRvcK_zLyv5mOZoi2/view?usp=drive_link 
+
 ## OpenAI Evaluation App
 
 This repository contains an application that evaluates a dataset of questions using OpenAI’s ChatGPT model. It processes data from the GAIA dataset, including associated files (e.g., text, CSV, Excel, Word, PDF, and PowerPoint), uploads supported files to AWS S3 for secure storage, and stores the evaluation results in Azure SQL. The app offers a user-friendly Streamlit interface to visualize the results through **Matplotlib**, making it easier to analyze ChatGPT's performance.

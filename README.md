@@ -26,6 +26,16 @@ This app makes it easy to:
 
 For detailed instructions on how to set up and run the application, please refer to the **Main README.md** file.
 
+## Attestation
+
+WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR
+ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK
+Contribution:
+1: Dharun Karthick Ramaraj: 33.33%
+2: Nikhil Godalla : 33.33%
+3: Linata Deshmukh: 33.33%
+
+
 ## License
 
 This project is licensed under the MIT License. For more details, please refer to the [LICENSE](LICENSE) file.

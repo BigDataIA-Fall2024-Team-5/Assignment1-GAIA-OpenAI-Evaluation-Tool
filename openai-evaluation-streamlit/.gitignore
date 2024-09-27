@@ -7,3 +7,7 @@ __pycache__/
 
 # Ignore any S3-related files
 *.log
+
+# Ignore env file
+.env
+

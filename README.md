@@ -30,7 +30,8 @@ For detailed instructions on how to set up and run the application, please refer
 
 WE ATTEST THAT WE HAVEN’T USED ANY OTHER STUDENTS’ WORK IN OUR
 ASSIGNMENT AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK
-Contribution:
+
+**Contribution**
 - **Dharun Karthick Ramaraj** 33.33%
 - **Nikhil Godalla** 33.33%
 - **Linata Deshmukh** 33.33%

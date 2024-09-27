@@ -1,3 +1,4 @@
+#newapp.py
 import os
 import streamlit as st
 import pandas as pd
@@ -89,7 +90,7 @@ def logout():
 # Landing Page
 def run_landing_page():
     st.title("OPEN AI EVALUATION APP")
-    st.write("Welcome to the Open AI Evaluation App!")
+    st.write("Would you like to assess AI's Answering Prowess?")
     st.button("Try It", on_click=go_to_login)
 
 # Main Page

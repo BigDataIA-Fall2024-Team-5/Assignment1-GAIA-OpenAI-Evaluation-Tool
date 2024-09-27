@@ -1,8 +1,8 @@
 # Assignment1-GAIA-OpenAI-Evaluation-Tool
 
-Application Link: https://team5-assignment1.streamlit.app/ 
-Code Lab Link: https://codelabs-preview.appspot.com/?file_id=1a1lWq_iTi-cp2h0ZCZ2yJs9ST9suEgrhw78o4ldVr0M#0 
-Presentation Video Link: https://drive.google.com/file/d/1HdkIqzupZM6o4eZYRvcK_zLyv5mOZoi2/view?usp=drive_link 
+- **Application Link: https://team5-assignment1.streamlit.app**
+- **Code Lab Link: https://codelabs-preview.appspot.com/?file_id=1a1lWq_iTi-cp2h0ZCZ2yJs9ST9suEgrhw78o4ldVr0M#0**
+- **Presentation Video Link: https://drive.google.com/file/d/1HdkIqzupZM6o4eZYRvcK_zLyv5mOZoi2/view?usp=drive_link**
 
 ## OpenAI Evaluation App - Quick Overview
 
